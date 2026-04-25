@@ -77,7 +77,7 @@ def create_app():
     def prize_wheel_asset():
         return send_from_directory(
             os.path.abspath(os.path.join(app.root_path, "..")),
-            "pixilart-drawing.png",
+            "wheel_Of_fitness.png",
         )
 
     @app.get("/assets/wheel-criteria.png")
