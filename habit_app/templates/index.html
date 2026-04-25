@@ -1229,7 +1229,7 @@
           return (
             account.password === password &&
             (account.email === normalizedIdentifier ||
-              account.displayName === String(identifier || "").trim())
+              account.displayName.toLowerCase() === normalizedIdentifier)
           );
         }) || null;
       }
@@ -1238,13 +1238,16 @@
         taskState.localAccounts = cleanLocalAccounts();
         const normalizedEmail = String(email || "").trim().toLowerCase();
         const trimmedName = String(displayName || "").trim();
+        const normalizedName = trimmedName.toLowerCase();
 
         if (taskState.localAccounts.some((account) => account.email === normalizedEmail)) {
           throw new Error("An account with that email already exists on this device.");
         }
 
         if (
-          taskState.localAccounts.some((account) => account.displayName === trimmedName)
+          taskState.localAccounts.some(
+            (account) => account.displayName.toLowerCase() === normalizedName
+          )
         ) {
           throw new Error("That display name is already taken on this device.");
         }

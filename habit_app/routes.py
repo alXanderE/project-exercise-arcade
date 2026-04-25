@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 
 from flask import Blueprint, current_app, jsonify, request
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 
 from .auth import build_session, hash_password, verify_password
 from .daily_tasks import all_daily_tasks, find_daily_task
@@ -675,7 +675,9 @@ def signup():
     if existing_user:
         return jsonify({"message": "An account with that email already exists."}), 400
 
-    existing_display_name = User.query.filter_by(display_name=display_name).first()
+    existing_display_name = User.query.filter(
+        func.lower(User.display_name) == display_name.lower()
+    ).first()
     if existing_display_name:
         return jsonify({"message": "That display name is already taken."}), 400
 
@@ -702,7 +704,7 @@ def login():
     user = User.query.filter(
         or_(
             User.email == normalized_identifier,
-            User.display_name == identifier,
+            func.lower(User.display_name) == normalized_identifier,
         )
     ).first()
     if not user or not verify_password(password, user.password_hash):
