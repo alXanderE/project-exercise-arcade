@@ -5,6 +5,7 @@ from functools import wraps
 from flask import Blueprint, current_app, jsonify, request
 
 from .auth import build_session, hash_password, verify_password
+from .daily_tasks import all_daily_tasks
 from .extensions import db
 from .models import (
     FitnessLog,
@@ -310,6 +311,11 @@ def apply_prize_wheel_reward(user, spin):
 @api.get("/health")
 def health():
     return jsonify({"ok": True, "service": "exercise-arcade"})
+
+
+@api.get("/tasks/daily")
+def daily_tasks():
+    return jsonify({"tasks": all_daily_tasks()})
 
 
 @api.post("/fitness/steps")

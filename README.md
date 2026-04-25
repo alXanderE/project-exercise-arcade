@@ -5,6 +5,7 @@ This repo now contains a basic Flask starter for an exercise habit gamification 
 ## What is included
 
 - Front page with exercise tasks, complete buttons, account auth, step logging, and a live point counter
+- Server-side daily task definitions in `habit_app/daily_tasks.py`
 - Flask app factory setup
 - SQLite database via Flask-SQLAlchemy
 - Cookie-based session auth
@@ -23,13 +24,16 @@ python app.py
 ```
 
 The database is created automatically on first start using `sqlite:///exercise_arcade.db`.
-Open `http://127.0.0.1:5000` or `http://127.0.0.1:5000/fitness` to see the front end page.
+Open `http://127.0.0.1:5000` to see the front end page.
+
+To add your own daily task cards, edit `habit_app/daily_tasks.py` and add another
+`DailyTask(...)` entry to `TASK_LIBRARY`.
 
 ## API routes
 
 - `GET /`
-- `GET /fitness`
 - `GET /api/health`
+- `GET /api/tasks/daily`
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`

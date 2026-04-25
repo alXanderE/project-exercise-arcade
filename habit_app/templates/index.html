@@ -459,6 +459,9 @@
           <p class="coin-note" id="coin-note">
             Log in to sync steps and arcade points.
           </p>
+          <p class="helper-text" id="daily-reset-note">
+            Daily tasks refresh every new calendar day.
+          </p>
         </aside>
       </section>
 
@@ -567,52 +570,7 @@
         </div>
       </section>
 
-      <section class="task-grid" id="task-grid">
-        <article class="task-card" data-task-id="warmup-walk" data-reward="5">
-          <div class="task-top">
-            <span class="task-tag">Warmup</span>
-            <span class="reward-badge">+5 local coins</span>
-          </div>
-          <h3>10 Minute Walk</h3>
-          <p class="task-description">
-            Loosen up, get outside, and pick up momentum before the heavier work.
-          </p>
-          <div class="task-footer">
-            <span class="task-status">Ready</span>
-            <button class="complete-button" type="button">Complete</button>
-          </div>
-        </article>
-
-        <article class="task-card" data-task-id="strength-circuit" data-reward="12">
-          <div class="task-top">
-            <span class="task-tag">Strength</span>
-            <span class="reward-badge">+12 local coins</span>
-          </div>
-          <h3>Bodyweight Circuit</h3>
-          <p class="task-description">
-            Finish 3 rounds of squats, push-ups, and lunges with steady pacing.
-          </p>
-          <div class="task-footer">
-            <span class="task-status">Ready</span>
-            <button class="complete-button" type="button">Complete</button>
-          </div>
-        </article>
-
-        <article class="task-card" data-task-id="mobility-flow" data-reward="8">
-          <div class="task-top">
-            <span class="task-tag">Recovery</span>
-            <span class="reward-badge">+8 local coins</span>
-          </div>
-          <h3>Mobility Flow</h3>
-          <p class="task-description">
-            Spend 12 minutes opening hips, shoulders, and hamstrings.
-          </p>
-          <div class="task-footer">
-            <span class="task-status">Ready</span>
-            <button class="complete-button" type="button">Complete</button>
-          </div>
-        </article>
-      </section>
+      <section class="task-grid" id="task-grid"></section>
 
       <section class="app-panel hidden" id="history-panel">
         <div class="section-head">
@@ -625,7 +583,8 @@
       <section class="tip-panel">
         <p>
           Step logs sync to your account and award spendable arcade points.
-          Training task cards are still a browser-only prototype.
+          Daily task definitions now come from the server, so you can add your own
+          tasks in Python and have the page render them automatically.
         </p>
         <button class="reset-button" type="button" id="reset-progress">
           Reset Local Tasks
@@ -638,11 +597,13 @@
     <script>
       const storageKey = "exercise-arcade-front-page-state";
       const defaultTaskState = {
-        completedTaskIds: []
+        lifetimeCoins: 0,
+        completionsByDate: {}
       };
       const appState = {
         authMode: "login",
         user: null,
+        tasks: [],
         settings: {
           stepsPerPoint: 1000,
           dailyStepCap: 20000,
@@ -672,6 +633,7 @@
         pointsPreview: document.getElementById("points-preview"),
         coinTotal: document.getElementById("coin-total"),
         coinNote: document.getElementById("coin-note"),
+        dailyResetNote: document.getElementById("daily-reset-note"),
         levelCount: document.getElementById("level-count"),
         todaySteps: document.getElementById("today-steps"),
         todayEarned: document.getElementById("today-earned"),
@@ -681,6 +643,7 @@
         goalProgress: document.getElementById("goal-progress"),
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
+        taskGrid: document.getElementById("task-grid"),
         resetProgress: document.getElementById("reset-progress")
       };
 
@@ -692,9 +655,11 @@
           }
 
           return {
-            completedTaskIds: Array.isArray(parsed.completedTaskIds)
-              ? parsed.completedTaskIds
-              : []
+            lifetimeCoins: Number(parsed.lifetimeCoins) || 0,
+            completionsByDate:
+              parsed.completionsByDate && typeof parsed.completionsByDate === "object"
+                ? parsed.completionsByDate
+                : {}
           };
         } catch {
           return { ...defaultTaskState };
@@ -706,7 +671,6 @@
       }
 
       const taskState = loadTaskState();
-      const taskCards = Array.from(document.querySelectorAll(".task-card"));
 
       function todayIso() {
         const now = new Date();
@@ -717,6 +681,61 @@
 
       function formatNumber(value) {
         return new Intl.NumberFormat().format(value || 0);
+      }
+
+      function currentDailyCompletedIds() {
+        const today = todayIso();
+        const ids = taskState.completionsByDate[today];
+        return Array.isArray(ids) ? ids : [];
+      }
+
+      function setCurrentDailyCompletedIds(ids) {
+        taskState.completionsByDate[todayIso()] = ids;
+      }
+
+      function buildTaskCard(task) {
+        const article = document.createElement("article");
+        article.className = "task-card";
+        article.dataset.taskId = task.id;
+        article.dataset.reward = String(task.coin_reward);
+        article.innerHTML = `
+          <div class="task-top">
+            <span class="task-tag">${task.category}</span>
+            <span class="reward-badge">+${task.coin_reward} daily coins</span>
+          </div>
+          <h3>${task.title}</h3>
+          <p class="task-description">${task.description}</p>
+          <div class="task-footer">
+            <span class="task-status">Ready</span>
+            <button class="complete-button" type="button">Complete</button>
+          </div>
+        `;
+        return article;
+      }
+
+      function renderTaskCards() {
+        elements.taskGrid.innerHTML = "";
+
+        for (const task of appState.tasks) {
+          const taskCard = buildTaskCard(task);
+          const button = taskCard.querySelector(".complete-button");
+          button.addEventListener("click", () => {
+            const completedIds = currentDailyCompletedIds();
+            if (completedIds.includes(task.id)) {
+              return;
+            }
+
+            completedIds.push(task.id);
+            setCurrentDailyCompletedIds(completedIds);
+            taskState.lifetimeCoins += task.coin_reward;
+            saveTaskState(taskState);
+            updateTaskCard(taskCard);
+            updateLocalCoinDisplay();
+          });
+
+          elements.taskGrid.append(taskCard);
+          updateTaskCard(taskCard);
+        }
       }
 
       function setMessage(text, isError = false) {
@@ -770,28 +789,45 @@
         elements.pointsPreview.textContent = `${formatNumber(points)} points`;
       }
 
-      function updateCoinDisplay(user) {
-        if (!user) {
-          elements.coinTotal.textContent = "0";
-          elements.coinNote.textContent = "Log in to sync steps and arcade points.";
-          return;
+      function updateLocalCoinDisplay() {
+        const completedToday = currentDailyCompletedIds().length;
+        const taskCount = appState.tasks.length;
+        const dailyCoins = currentDailyCompletedIds().reduce((sum, taskId) => {
+          const task = appState.tasks.find((item) => item.id === taskId);
+          return sum + (task ? task.coin_reward : 0);
+        }, 0);
+
+        if (!appState.user) {
+          elements.coinTotal.textContent = formatNumber(taskState.lifetimeCoins);
+          elements.coinNote.textContent =
+            `Daily tasks earned ${formatNumber(dailyCoins)} local coins today.`;
+        } else {
+          elements.coinTotal.textContent = formatNumber(appState.user.points);
+          elements.coinNote.textContent =
+            `${appState.user.displayName} is level ${appState.user.level}. ` +
+            `${formatNumber(dailyCoins)} daily local coins earned today.`;
         }
 
-        elements.coinTotal.textContent = formatNumber(user.points);
-        elements.coinNote.textContent =
-          `${user.displayName} is level ${user.level}. Points come from steps, ` +
-          "habits, and arcade rewards.";
+        elements.dailyResetNote.textContent =
+          completedToday === taskCount && taskCount > 0
+            ? "All daily tasks are done. They will unlock again tomorrow."
+            : `Completed ${completedToday} of ${taskCount} daily tasks for ${todayIso()}.`;
+      }
+
+      function updateCoinDisplay(user) {
+        appState.user = user;
+        updateLocalCoinDisplay();
       }
 
       function updateTaskCard(taskCard) {
         const taskId = taskCard.dataset.taskId;
-        const isComplete = taskState.completedTaskIds.includes(taskId);
+        const isComplete = currentDailyCompletedIds().includes(taskId);
         const button = taskCard.querySelector(".complete-button");
         const status = taskCard.querySelector(".task-status");
 
         button.disabled = isComplete;
         button.textContent = isComplete ? "Completed" : "Complete";
-        status.textContent = isComplete ? "Marked complete" : "Ready";
+        status.textContent = isComplete ? `Done for ${todayIso()}` : "Ready";
       }
 
       function updateSummary(summary) {
@@ -868,11 +904,20 @@
 
       async function checkSession() {
         try {
+          await loadDailyTasks();
           await apiFetch("/api/auth/session");
           await refreshFitness();
         } catch {
+          await loadDailyTasks();
           showLoggedOut();
         }
+      }
+
+      async function loadDailyTasks() {
+        const result = await apiFetch("/api/tasks/daily");
+        appState.tasks = Array.isArray(result.tasks) ? result.tasks : [];
+        renderTaskCards();
+        updateLocalCoinDisplay();
       }
 
       async function handleAuth(event) {
@@ -930,27 +975,11 @@
         }
       }
 
-      taskCards.forEach((taskCard) => {
-        updateTaskCard(taskCard);
-
-        const button = taskCard.querySelector(".complete-button");
-        button.addEventListener("click", () => {
-          const taskId = taskCard.dataset.taskId;
-
-          if (taskState.completedTaskIds.includes(taskId)) {
-            return;
-          }
-
-          taskState.completedTaskIds.push(taskId);
-          saveTaskState(taskState);
-          updateTaskCard(taskCard);
-        });
-      });
-
       elements.resetProgress.addEventListener("click", () => {
-        taskState.completedTaskIds = [];
+        delete taskState.completionsByDate[todayIso()];
         saveTaskState(taskState);
-        taskCards.forEach(updateTaskCard);
+        Array.from(document.querySelectorAll(".task-card")).forEach(updateTaskCard);
+        updateLocalCoinDisplay();
       });
 
       elements.loggedOn.value = todayIso();
