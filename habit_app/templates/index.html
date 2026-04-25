@@ -1151,6 +1151,22 @@
         elements.prizeWheelPanel.classList.remove("hidden");
       }
 
+      function showAuthedShell(user) {
+        updateCoinDisplay(user);
+        elements.levelCount.textContent = formatNumber(user?.level || 1);
+        elements.todaySteps.textContent = "0";
+        elements.todayEarned.textContent = "0";
+        elements.goalDays.textContent = "0";
+        elements.totalSteps.textContent = "0 total steps";
+        elements.goalLabel.textContent =
+          `${formatNumber(appState.settings.dailyGoalSteps)} step daily goal`;
+        elements.goalProgress.style.width = "0%";
+        elements.historyList.innerHTML = "";
+        elements.spinHistory.innerHTML = "";
+        elements.wheelResult.textContent = "Ready to spin";
+        showAuthed();
+      }
+
       function showLoggedOut() {
         elements.authPanel.classList.remove("hidden");
         elements.fitnessPanel.classList.add("hidden");
@@ -1206,13 +1222,23 @@
         }
 
         try {
-          await apiFetch(`/api/auth/${appState.authMode}`, {
+          const result = await apiFetch(`/api/auth/${appState.authMode}`, {
             method: "POST",
             body: JSON.stringify(payload)
           });
           elements.password.value = "";
+          showAuthedShell(result.user);
           setMessage("");
-          await refreshFitness();
+
+          try {
+            await refreshFitness();
+          } catch (error) {
+            setMessage(
+              "Account created, but the dashboard could not fully sync yet. " +
+              "Try refreshing in a moment.",
+              true
+            );
+          }
         } catch (error) {
           setMessage(error.message, true);
         }
