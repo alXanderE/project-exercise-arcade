@@ -810,10 +810,36 @@
 
     <script>
       const storageKey = "exercise-arcade-front-page-state";
+      const fallbackDailyTasks = [
+        {
+          id: "warmup-walk",
+          title: "10 Minute Walk",
+          category: "Warmup",
+          description: "Loosen up, get outside, and pick up momentum before the heavier work.",
+          coin_reward: 5
+        },
+        {
+          id: "strength-circuit",
+          title: "Bodyweight Circuit",
+          category: "Strength",
+          description: "Finish 3 rounds of squats, push-ups, and lunges with steady pacing.",
+          coin_reward: 12
+        },
+        {
+          id: "mobility-flow",
+          title: "Mobility Flow",
+          category: "Recovery",
+          description: "Spend 12 minutes opening hips, shoulders, and hamstrings.",
+          coin_reward: 8
+        }
+      ];
       const defaultTaskState = {
         lifetimeCoins: 0,
         completionsByDate: {},
-        customTasks: []
+        customTasks: [],
+        localAccounts: [],
+        localSessionUserId: null,
+        localFitnessLogsByUser: {}
       };
       const appState = {
         authMode: "login",
@@ -901,7 +927,19 @@
                 : {},
             customTasks: Array.isArray(parsed.customTasks)
               ? parsed.customTasks
-              : []
+              : [],
+            localAccounts: Array.isArray(parsed.localAccounts)
+              ? parsed.localAccounts
+              : [],
+            localSessionUserId:
+              typeof parsed.localSessionUserId === "string"
+                ? parsed.localSessionUserId
+                : null,
+            localFitnessLogsByUser:
+              parsed.localFitnessLogsByUser &&
+              typeof parsed.localFitnessLogsByUser === "object"
+                ? parsed.localFitnessLogsByUser
+                : {}
           };
         } catch {
           return { ...defaultTaskState };
@@ -950,6 +988,231 @@
             is_custom: true
           }))
           .filter((task) => task.id && task.title && task.description);
+      }
+
+      function calculateLevel(points) {
+        return Math.max(1, Math.floor((points || 0) / 100) + 1);
+      }
+
+      function cleanLocalAccounts() {
+        return taskState.localAccounts
+          .filter((account) => account && typeof account === "object")
+          .map((account) => ({
+            id: String(account.id || ""),
+            email: String(account.email || "").trim().toLowerCase(),
+            displayName: String(account.displayName || "").trim(),
+            password: String(account.password || ""),
+            points: Math.max(0, Number.parseInt(account.points, 10) || 0),
+            level: Math.max(1, Number.parseInt(account.level, 10) || 1),
+            localMode: true
+          }))
+          .filter((account) => account.id && account.email && account.displayName);
+      }
+
+      function cleanLocalFitnessLogs() {
+        const cleaned = {};
+
+        for (const [userId, logs] of Object.entries(taskState.localFitnessLogsByUser || {})) {
+          cleaned[userId] = Array.isArray(logs)
+            ? logs
+                .filter((log) => log && typeof log === "object")
+                .map((log) => ({
+                  loggedOn: String(log.loggedOn || todayIso()),
+                  steps: Math.max(0, Number.parseInt(log.steps, 10) || 0),
+                  pointsAwarded: Math.max(0, Number.parseInt(log.pointsAwarded, 10) || 0),
+                  notes: String(log.notes || ""),
+                  source: "local"
+                }))
+            : [];
+        }
+
+        return cleaned;
+      }
+
+      function persistLocalState() {
+        taskState.localAccounts = cleanLocalAccounts();
+        taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
+        saveTaskState(taskState);
+      }
+
+      function currentLocalAccount() {
+        taskState.localAccounts = cleanLocalAccounts();
+        const userId = taskState.localSessionUserId;
+        if (!userId) {
+          return null;
+        }
+
+        return taskState.localAccounts.find((account) => account.id === userId) || null;
+      }
+
+      function setCurrentLocalAccount(account) {
+        taskState.localAccounts = cleanLocalAccounts();
+        const index = taskState.localAccounts.findIndex((item) => item.id === account.id);
+        const normalized = {
+          ...account,
+          email: String(account.email || "").trim().toLowerCase(),
+          displayName: String(account.displayName || "").trim(),
+          points: Math.max(0, Number.parseInt(account.points, 10) || 0),
+          level: calculateLevel(account.points),
+          localMode: true
+        };
+
+        if (index >= 0) {
+          taskState.localAccounts[index] = normalized;
+        } else {
+          taskState.localAccounts.push(normalized);
+        }
+
+        taskState.localSessionUserId = normalized.id;
+        persistLocalState();
+        appState.user = normalized;
+        return normalized;
+      }
+
+      function clearLocalSession() {
+        taskState.localSessionUserId = null;
+        persistLocalState();
+        appState.user = null;
+      }
+
+      function localAccountFromCredentials(identifier, password) {
+        const normalizedIdentifier = String(identifier || "").trim().toLowerCase();
+        return cleanLocalAccounts().find((account) => {
+          return (
+            account.password === password &&
+            (account.email === normalizedIdentifier ||
+              account.displayName === String(identifier || "").trim())
+          );
+        }) || null;
+      }
+
+      function createLocalAccount(email, displayName, password) {
+        taskState.localAccounts = cleanLocalAccounts();
+        const normalizedEmail = String(email || "").trim().toLowerCase();
+        const trimmedName = String(displayName || "").trim();
+
+        if (taskState.localAccounts.some((account) => account.email === normalizedEmail)) {
+          throw new Error("An account with that email already exists on this device.");
+        }
+
+        if (
+          taskState.localAccounts.some((account) => account.displayName === trimmedName)
+        ) {
+          throw new Error("That display name is already taken on this device.");
+        }
+
+        return setCurrentLocalAccount({
+          id: `local-${Date.now()}`,
+          email: normalizedEmail,
+          displayName: trimmedName,
+          password,
+          points: 0,
+          level: 1,
+          localMode: true
+        });
+      }
+
+      function localFitnessLogsForUser(userId) {
+        taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
+        return Array.isArray(taskState.localFitnessLogsByUser[userId])
+          ? [...taskState.localFitnessLogsByUser[userId]]
+          : [];
+      }
+
+      function updateLocalUserPoints(pointsDelta) {
+        const currentUser = currentLocalAccount();
+        if (!currentUser) {
+          return null;
+        }
+
+        return setCurrentLocalAccount({
+          ...currentUser,
+          points: Math.max(0, currentUser.points + pointsDelta)
+        });
+      }
+
+      function localSummaryForUser(user) {
+        const logs = localFitnessLogsForUser(user.id).sort((left, right) => {
+          return right.loggedOn.localeCompare(left.loggedOn);
+        });
+        const today = todayIso();
+        const todayLog = logs.find((log) => log.loggedOn === today) || null;
+
+        return {
+          today: todayLog
+            ? {
+                ...todayLog,
+                id: `${user.id}-${todayLog.loggedOn}`
+              }
+            : null,
+          stats: {
+            totalLogs: logs.length,
+            totalSteps: logs.reduce((sum, log) => sum + log.steps, 0),
+            totalPointsAwarded: logs.reduce((sum, log) => sum + log.pointsAwarded, 0),
+            bestDaySteps: logs.reduce((max, log) => Math.max(max, log.steps), 0),
+            goalDays: logs.filter(
+              (log) => log.steps >= appState.settings.dailyGoalSteps
+            ).length
+          },
+          rewardSettings: appState.settings,
+          user
+        };
+      }
+
+      function localHistoryForUser(user) {
+        return {
+          logs: localFitnessLogsForUser(user.id)
+            .sort((left, right) => right.loggedOn.localeCompare(left.loggedOn))
+            .map((log, index) => ({
+              id: `${user.id}-${log.loggedOn}-${index}`,
+              loggedOn: log.loggedOn,
+              steps: log.steps,
+              source: "local",
+              pointsAwarded: log.pointsAwarded,
+              notes: log.notes,
+              createdAt: `${log.loggedOn}T00:00:00`,
+              updatedAt: `${log.loggedOn}T00:00:00`
+            }))
+        };
+      }
+
+      function saveLocalSteps(payload) {
+        const currentUser = currentLocalAccount();
+        if (!currentUser) {
+          throw new Error("Log in first to save steps.");
+        }
+
+        const logs = localFitnessLogsForUser(currentUser.id);
+        const pointsAwarded = calculatePreview(payload.steps);
+        const index = logs.findIndex((log) => log.loggedOn === payload.loggedOn);
+        const previousPoints = index >= 0 ? logs[index].pointsAwarded : 0;
+        const pointsDelta = pointsAwarded - previousPoints;
+        const nextLog = {
+          loggedOn: payload.loggedOn,
+          steps: payload.steps,
+          pointsAwarded,
+          notes: payload.notes || "",
+          source: "local"
+        };
+
+        if (index >= 0) {
+          logs[index] = nextLog;
+        } else {
+          logs.push(nextLog);
+        }
+
+        taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
+        taskState.localFitnessLogsByUser[currentUser.id] = logs;
+        persistLocalState();
+        const user = updateLocalUserPoints(pointsDelta);
+
+        return {
+          created: index === -1,
+          pointsDelta,
+          log: nextLog,
+          rewardSettings: appState.settings,
+          user
+        };
       }
 
       function currentDailyCompletedIds() {
@@ -1019,6 +1282,9 @@
             completedIds.push(task.id);
             setCurrentDailyCompletedIds(completedIds);
             taskState.lifetimeCoins += task.coin_reward;
+            if (currentLocalAccount()) {
+              updateLocalUserPoints(task.coin_reward);
+            }
             saveTaskState(taskState);
             updateTaskCard(taskCard);
             updateLocalCoinDisplay();
@@ -1162,7 +1428,7 @@
           elements.coinTotal.textContent = formatNumber(appState.user.points);
           elements.coinNote.textContent =
             `${appState.user.displayName} is level ${appState.user.level}. ` +
-            `${formatNumber(dailyCoins)} daily local coins earned today.`;
+            `${formatNumber(dailyCoins)} task coins earned today.`;
         }
 
         elements.dailyResetNote.textContent =
@@ -1212,16 +1478,21 @@
       function updatePrizeWheelControls() {
         const cost = appState.prizeWheel.spinCost;
         const balance = appState.user?.points || 0;
-        const canSpin = Boolean(appState.user) && balance >= cost;
+        const localMode = Boolean(appState.user?.localMode);
+        const canSpin = Boolean(appState.user) && !localMode && balance >= cost;
 
-        elements.wheelCostNote.textContent = `Spin for ${formatNumber(cost)} coins.`;
+        elements.wheelCostNote.textContent = localMode
+          ? "Prize wheel needs a server-backed account."
+          : `Spin for ${formatNumber(cost)} coins.`;
         elements.spinWheelButton.textContent = appState.prizeWheel.isSpinning
           ? "Spinning..."
           : `Spin - ${formatNumber(cost)} coins`;
         elements.spinWheelButton.disabled = appState.prizeWheel.isSpinning || !canSpin;
-        elements.wheelBalanceNote.textContent = canSpin
-          ? `${formatNumber(balance)} coins available`
-          : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`;
+        elements.wheelBalanceNote.textContent = localMode
+          ? "Unavailable in browser-only mode"
+          : canSpin
+            ? `${formatNumber(balance)} coins available`
+            : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`;
       }
 
       function updatePrizeWheel(wheel) {
@@ -1340,7 +1611,7 @@
         elements.fitnessPanel.classList.remove("hidden");
         elements.summaryPanel.classList.remove("hidden");
         elements.historyPanel.classList.remove("hidden");
-        elements.prizeWheelPanel.classList.remove("hidden");
+        elements.prizeWheelPanel.classList.toggle("hidden", Boolean(appState.user?.localMode));
       }
 
       function showAuthedShell(user) {
@@ -1369,6 +1640,14 @@
       }
 
       async function refreshFitness() {
+        if (appState.user?.localMode) {
+          updateSummary(localSummaryForUser(appState.user));
+          updateHistory(localHistoryForUser(appState.user));
+          elements.spinHistory.innerHTML = "";
+          showAuthed();
+          return;
+        }
+
         const [summary, history, wheel, wheelHistory] = await Promise.all([
           apiFetch("/api/fitness/summary"),
           apiFetch("/api/fitness/history"),
@@ -1384,19 +1663,36 @@
       }
 
       async function checkSession() {
+        await loadDailyTasks();
+
+        const localUser = currentLocalAccount();
+        if (localUser) {
+          appState.user = localUser;
+          showAuthedShell(localUser);
+          await refreshFitness();
+          return;
+        }
+
         try {
-          await loadDailyTasks();
           await apiFetch("/api/auth/session");
           await refreshFitness();
         } catch {
-          await loadDailyTasks();
           showLoggedOut();
         }
       }
 
       async function loadDailyTasks() {
-        const result = await apiFetch("/api/tasks/daily");
-        const serverTasks = Array.isArray(result.tasks) ? result.tasks : [];
+        let serverTasks = fallbackDailyTasks;
+
+        try {
+          const result = await apiFetch("/api/tasks/daily");
+          serverTasks = Array.isArray(result.tasks) && result.tasks.length
+            ? result.tasks
+            : fallbackDailyTasks;
+        } catch {
+          serverTasks = fallbackDailyTasks;
+        }
+
         taskState.customTasks = cleanCustomTasks();
         appState.tasks = [...serverTasks, ...taskState.customTasks];
         saveTaskState(taskState);
@@ -1408,14 +1704,31 @@
         event.preventDefault();
 
         if (appState.authMode === "signup") {
+          const email = elements.email.value.trim();
+          const displayName = elements.displayName.value.trim();
+          const password = elements.password.value;
+
+          if (!email || !displayName || password.length < 6) {
+            setMessage(
+              "Email, display name, and a password with at least 6 characters are required.",
+              true
+            );
+            return;
+          }
+
           try {
             const result = await apiFetch("/api/auth/signup", {
               method: "POST",
               body: JSON.stringify({
-                email: elements.email.value,
-                displayName: elements.displayName.value,
-                password: elements.password.value
+                email,
+                displayName,
+                password
               })
+            });
+            setCurrentLocalAccount({
+              ...result.user,
+              password,
+              localMode: false
             });
             elements.password.value = "";
             showAuthedShell(result.user);
@@ -1431,7 +1744,15 @@
               );
             }
           } catch (error) {
-            setMessage(error.message, true);
+            try {
+              const localUser = createLocalAccount(email, displayName, password);
+              elements.password.value = "";
+              showAuthedShell(localUser);
+              await refreshFitness();
+              setMessage("Account saved in this browser. Server sync can come later.");
+            } catch (localError) {
+              setMessage(localError.message || error.message, true);
+            }
           }
 
           return;
@@ -1445,6 +1766,11 @@
               password: elements.password.value
             })
           });
+          setCurrentLocalAccount({
+            ...result.user,
+            password: elements.password.value,
+            localMode: false
+          });
           elements.password.value = "";
           showAuthedShell(result.user);
           setMessage("");
@@ -1456,10 +1782,24 @@
               "Account created, but the dashboard could not fully sync yet. " +
               "Try refreshing in a moment.",
               true
-            );
-          }
+              );
+            }
         } catch (error) {
-          setMessage(error.message, true);
+          const localUser = localAccountFromCredentials(
+            elements.email.value,
+            elements.password.value
+          );
+
+          if (!localUser) {
+            setMessage(error.message, true);
+            return;
+          }
+
+          setCurrentLocalAccount(localUser);
+          elements.password.value = "";
+          showAuthedShell(localUser);
+          await refreshFitness();
+          setMessage("Logged in with your browser-saved account.");
         }
       }
 
@@ -1473,10 +1813,12 @@
         };
 
         try {
-          const result = await apiFetch("/api/fitness/steps", {
-            method: "POST",
-            body: JSON.stringify(payload)
-          });
+          const result = appState.user?.localMode
+            ? saveLocalSteps(payload)
+            : await apiFetch("/api/fitness/steps", {
+                method: "POST",
+                body: JSON.stringify(payload)
+              });
           setMessage(`Saved. Point change: ${formatNumber(result.pointsDelta)}.`);
           await refreshFitness();
         } catch (error) {
@@ -1486,8 +1828,11 @@
 
       async function handleLogout() {
         try {
-          await apiFetch("/api/auth/logout", { method: "POST" });
+          if (!appState.user?.localMode) {
+            await apiFetch("/api/auth/logout", { method: "POST" });
+          }
         } finally {
+          clearLocalSession();
           showLoggedOut();
           setMessage("");
         }
