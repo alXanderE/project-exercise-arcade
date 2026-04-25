@@ -35,6 +35,12 @@ The database is created automatically on first start using `sqlite:///exercise_a
 - `POST /api/habits`
 - `POST /api/habits/<habit_id>/log`
 - `GET /api/dashboard`
+- `POST /api/fitness/steps`
+- `GET /api/fitness/summary`
+- `GET /api/fitness/history`
+- `GET /api/arcade/prize-wheel`
+- `POST /api/arcade/prize-wheel/spin`
+- `GET /api/arcade/prize-wheel/history`
 
 ## Example payloads
 
@@ -69,4 +75,36 @@ Log a completion:
   "durationMinutes": 25,
   "notes": "Felt strong today"
 }
+```
+
+Log daily steps:
+
+```json
+{
+  "loggedOn": "2026-04-25",
+  "steps": 8500,
+  "notes": "Walked to class and back"
+}
+```
+
+Manual fitness logging awards points that can be spent in the arcade. By default,
+users earn 1 point per 1,000 steps, up to 20,000 rewarded steps per day, plus a
+5 point bonus for reaching 10,000 steps.
+
+Spin the prize wheel:
+
+```http
+POST /api/arcade/prize-wheel/spin
+```
+
+The server charges the configured spin cost, chooses a weighted prize slice, records the spin, applies the reward, and returns the winning slice so a client can animate the wheel toward the server-authoritative result.
+
+Configure the spin cost with:
+
+```bash
+PRIZE_WHEEL_SPIN_COST=25
+FITNESS_STEPS_PER_POINT=1000
+FITNESS_DAILY_STEP_CAP=20000
+FITNESS_DAILY_GOAL_STEPS=10000
+FITNESS_DAILY_GOAL_BONUS=5
 ```

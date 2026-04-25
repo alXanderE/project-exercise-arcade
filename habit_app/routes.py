@@ -1,3 +1,4 @@
+import secrets
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 
@@ -5,10 +6,75 @@ from flask import Blueprint, current_app, jsonify, request
 
 from .auth import build_session, hash_password, verify_password
 from .extensions import db
-from .models import Habit, HabitLog, User
+from .models import (
+    FitnessLog,
+    Habit,
+    HabitLog,
+    PrizeWheelSlice,
+    PrizeWheelSpin,
+    User,
+    UserPrize,
+)
 
 
 api = Blueprint("api", __name__)
+
+DEFAULT_PRIZE_WHEEL_SLICES = [
+    {
+        "label": "+5 points",
+        "description": "A small boost for the next round.",
+        "color": "#14b8a6",
+        "weight": 28,
+        "reward_type": "points",
+        "reward_value": 5,
+        "display_order": 0,
+    },
+    {
+        "label": "+15 points",
+        "description": "A solid arcade payout.",
+        "color": "#22c55e",
+        "weight": 22,
+        "reward_type": "points",
+        "reward_value": 15,
+        "display_order": 1,
+    },
+    {
+        "label": "Spin refund",
+        "description": "Wins back the cost of this spin.",
+        "color": "#f59e0b",
+        "weight": 14,
+        "reward_type": "points",
+        "reward_value": 25,
+        "display_order": 2,
+    },
+    {
+        "label": "+50 points",
+        "description": "A rare points jackpot.",
+        "color": "#ef4444",
+        "weight": 6,
+        "reward_type": "points",
+        "reward_value": 50,
+        "display_order": 3,
+    },
+    {
+        "label": "Arcade badge",
+        "description": "A collectible prize for the profile.",
+        "color": "#8b5cf6",
+        "weight": 10,
+        "reward_type": "badge",
+        "reward_value": 1,
+        "display_order": 4,
+    },
+    {
+        "label": "Try again",
+        "description": "No prize this time.",
+        "color": "#64748b",
+        "weight": 20,
+        "reward_type": "nothing",
+        "reward_value": 0,
+        "display_order": 5,
+    },
+]
 
 
 def serialize_user(user):
@@ -32,7 +98,59 @@ def serialize_habit(habit):
         "pointsReward": habit.points_reward,
         "streakCount": habit.streak_count,
         "isActive": habit.is_active,
-        "lastCompletedOn": habit.last_completed_on.isoformat() if habit.last_completed_on else None,
+        "lastCompletedOn": (
+            habit.last_completed_on.isoformat() if habit.last_completed_on else None
+        ),
+    }
+
+
+def serialize_fitness_log(log):
+    return {
+        "id": log.id,
+        "loggedOn": log.logged_on.isoformat(),
+        "steps": log.steps,
+        "source": log.source,
+        "pointsAwarded": log.points_awarded,
+        "notes": log.notes,
+        "createdAt": log.created_at.isoformat(),
+        "updatedAt": log.updated_at.isoformat(),
+    }
+
+
+def serialize_prize_wheel_slice(slice_):
+    return {
+        "id": slice_.id,
+        "label": slice_.label,
+        "description": slice_.description,
+        "color": slice_.color,
+        "weight": slice_.weight,
+        "rewardType": slice_.reward_type,
+        "rewardValue": slice_.reward_value,
+        "isActive": slice_.is_active,
+        "displayOrder": slice_.display_order,
+    }
+
+
+def serialize_prize_wheel_spin(spin):
+    return {
+        "id": spin.id,
+        "sliceId": spin.slice_id,
+        "pointsSpent": spin.points_spent,
+        "rewardType": spin.reward_type,
+        "rewardValue": spin.reward_value,
+        "prizeLabel": spin.prize_label,
+        "createdAt": spin.created_at.isoformat(),
+    }
+
+
+def serialize_user_prize(prize):
+    return {
+        "id": prize.id,
+        "spinId": prize.spin_id,
+        "prizeType": prize.prize_type,
+        "label": prize.label,
+        "isRedeemed": prize.is_redeemed,
+        "createdAt": prize.created_at.isoformat(),
     }
 
 
@@ -117,9 +235,276 @@ def update_habit_streak(habit, completed_on):
     habit.last_completed_on = completed_on
 
 
+def calculate_fitness_points(steps):
+    capped_steps = min(steps, current_app.config["FITNESS_DAILY_STEP_CAP"])
+    points = capped_steps // current_app.config["FITNESS_STEPS_PER_POINT"]
+
+    if steps >= current_app.config["FITNESS_DAILY_GOAL_STEPS"]:
+        points += current_app.config["FITNESS_DAILY_GOAL_BONUS"]
+
+    return points
+
+
+def fitness_reward_settings():
+    return {
+        "stepsPerPoint": current_app.config["FITNESS_STEPS_PER_POINT"],
+        "dailyStepCap": current_app.config["FITNESS_DAILY_STEP_CAP"],
+        "dailyGoalSteps": current_app.config["FITNESS_DAILY_GOAL_STEPS"],
+        "dailyGoalBonus": current_app.config["FITNESS_DAILY_GOAL_BONUS"],
+    }
+
+
+def ensure_default_prize_wheel_slices():
+    has_slices = PrizeWheelSlice.query.first() is not None
+    if has_slices:
+        return
+
+    for prize_slice in DEFAULT_PRIZE_WHEEL_SLICES:
+        db.session.add(PrizeWheelSlice(**prize_slice))
+    db.session.commit()
+
+
+def active_prize_wheel_slices():
+    ensure_default_prize_wheel_slices()
+    return (
+        PrizeWheelSlice.query.filter_by(is_active=True)
+        .order_by(PrizeWheelSlice.display_order.asc(), PrizeWheelSlice.id.asc())
+        .all()
+    )
+
+
+def choose_weighted_slice(slices):
+    total_weight = sum(max(slice_.weight, 0) for slice_ in slices)
+    if total_weight <= 0:
+        return None
+
+    winning_number = secrets.SystemRandom().randint(1, total_weight)
+    current_weight = 0
+    for slice_ in slices:
+        current_weight += max(slice_.weight, 0)
+        if winning_number <= current_weight:
+            return slice_
+
+    return slices[-1]
+
+
+def apply_prize_wheel_reward(user, spin):
+    if spin.reward_type == "points":
+        user.points += spin.reward_value
+        user.level = calculate_level(user.points)
+        return None
+
+    if spin.reward_type in {"badge", "coupon", "mystery"}:
+        prize = UserPrize(
+            user_id=user.id,
+            spin_id=spin.id,
+            prize_type=spin.reward_type,
+            label=spin.prize_label,
+        )
+        db.session.add(prize)
+        return prize
+
+    return None
+
+
 @api.get("/health")
 def health():
     return jsonify({"ok": True, "service": "exercise-arcade"})
+
+
+@api.post("/fitness/steps")
+@require_auth
+def log_fitness_steps(user):
+    payload = request.get_json(silent=True) or {}
+
+    try:
+        logged_on = normalize_date(payload.get("loggedOn"))
+    except ValueError:
+        return jsonify({"message": "loggedOn must use YYYY-MM-DD format."}), 400
+
+    try:
+        steps = int(payload.get("steps"))
+    except (TypeError, ValueError):
+        return jsonify({"message": "steps must be a whole number."}), 400
+
+    if steps < 0:
+        return jsonify({"message": "steps cannot be negative."}), 400
+
+    points_awarded = calculate_fitness_points(steps)
+    notes = (payload.get("notes") or "").strip() or None
+
+    log = FitnessLog.query.filter_by(user_id=user.id, logged_on=logged_on).first()
+    created = log is None
+
+    if created:
+        log = FitnessLog(
+            user_id=user.id,
+            logged_on=logged_on,
+            steps=steps,
+            source="manual",
+            points_awarded=points_awarded,
+            notes=notes,
+        )
+        db.session.add(log)
+        points_delta = points_awarded
+    else:
+        points_delta = points_awarded - log.points_awarded
+        log.steps = steps
+        log.source = "manual"
+        log.points_awarded = points_awarded
+        log.notes = notes
+
+    user.points = max(0, user.points + points_delta)
+    user.level = calculate_level(user.points)
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                "message": "Fitness steps logged.",
+                "created": created,
+                "pointsDelta": points_delta,
+                "log": serialize_fitness_log(log),
+                "rewardSettings": fitness_reward_settings(),
+                "user": serialize_user(user),
+            }
+        ),
+        201 if created else 200,
+    )
+
+
+@api.get("/fitness/history")
+@require_auth
+def fitness_history(user):
+    logs = (
+        FitnessLog.query.filter_by(user_id=user.id)
+        .order_by(FitnessLog.logged_on.desc(), FitnessLog.created_at.desc())
+        .limit(30)
+        .all()
+    )
+
+    return jsonify(
+        {
+            "logs": [serialize_fitness_log(log) for log in logs],
+            "rewardSettings": fitness_reward_settings(),
+        }
+    )
+
+
+@api.get("/fitness/summary")
+@require_auth
+def fitness_summary(user):
+    logs = FitnessLog.query.filter_by(user_id=user.id).all()
+    today = date.today()
+    today_log = next((log for log in logs if log.logged_on == today), None)
+
+    return jsonify(
+        {
+            "today": serialize_fitness_log(today_log) if today_log else None,
+            "stats": {
+                "totalLogs": len(logs),
+                "totalSteps": sum(log.steps for log in logs),
+                "totalPointsAwarded": sum(log.points_awarded for log in logs),
+                "bestDaySteps": max((log.steps for log in logs), default=0),
+                "goalDays": sum(
+                    1
+                    for log in logs
+                    if log.steps >= current_app.config["FITNESS_DAILY_GOAL_STEPS"]
+                ),
+            },
+            "rewardSettings": fitness_reward_settings(),
+            "user": serialize_user(user),
+        }
+    )
+
+
+@api.get("/arcade/prize-wheel")
+@require_auth
+def get_prize_wheel(user):
+    slices = active_prize_wheel_slices()
+    return jsonify(
+        {
+            "spinCost": current_app.config["PRIZE_WHEEL_SPIN_COST"],
+            "slices": [serialize_prize_wheel_slice(slice_) for slice_ in slices],
+            "user": serialize_user(user),
+        }
+    )
+
+
+@api.post("/arcade/prize-wheel/spin")
+@require_auth
+def spin_prize_wheel(user):
+    spin_cost = current_app.config["PRIZE_WHEEL_SPIN_COST"]
+    if user.points < spin_cost:
+        return (
+            jsonify(
+                {
+                    "message": "Not enough points to spin the prize wheel.",
+                    "spinCost": spin_cost,
+                    "user": serialize_user(user),
+                }
+            ),
+            400,
+        )
+
+    slices = active_prize_wheel_slices()
+    winning_slice = choose_weighted_slice(slices)
+    if not winning_slice:
+        return (
+            jsonify({"message": "The prize wheel has no active weighted slices."}),
+            503,
+        )
+
+    user.points -= spin_cost
+    user.level = calculate_level(user.points)
+
+    spin = PrizeWheelSpin(
+        user_id=user.id,
+        slice_id=winning_slice.id,
+        points_spent=spin_cost,
+        reward_type=winning_slice.reward_type,
+        reward_value=winning_slice.reward_value,
+        prize_label=winning_slice.label,
+    )
+    db.session.add(spin)
+    db.session.flush()
+
+    prize = apply_prize_wheel_reward(user, spin)
+    user.level = calculate_level(user.points)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "message": "Prize wheel spun.",
+            "spin": serialize_prize_wheel_spin(spin),
+            "winningSlice": serialize_prize_wheel_slice(winning_slice),
+            "prize": serialize_user_prize(prize) if prize else None,
+            "user": serialize_user(user),
+        }
+    )
+
+
+@api.get("/arcade/prize-wheel/history")
+@require_auth
+def prize_wheel_history(user):
+    spins = (
+        PrizeWheelSpin.query.filter_by(user_id=user.id)
+        .order_by(PrizeWheelSpin.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    prizes = (
+        UserPrize.query.filter_by(user_id=user.id)
+        .order_by(UserPrize.created_at.desc())
+        .limit(20)
+        .all()
+    )
+    return jsonify(
+        {
+            "spins": [serialize_prize_wheel_spin(spin) for spin in spins],
+            "prizes": [serialize_user_prize(prize) for prize in prizes],
+        }
+    )
 
 
 @api.post("/auth/signup")
@@ -133,7 +518,10 @@ def signup():
         return (
             jsonify(
                 {
-                    "message": "Email, display name, and a password with at least 6 characters are required."
+                    "message": (
+                        "Email, display name, and a password with at least "
+                        "6 characters are required."
+                    )
                 }
             ),
             400,
@@ -188,7 +576,11 @@ def session(user):
 @api.get("/habits")
 @require_auth
 def list_habits(user):
-    habits = Habit.query.filter_by(user_id=user.id).order_by(Habit.created_at.desc()).all()
+    habits = (
+        Habit.query.filter_by(user_id=user.id)
+        .order_by(Habit.created_at.desc())
+        .all()
+    )
     return jsonify({"habits": [serialize_habit(habit) for habit in habits]})
 
 
@@ -235,7 +627,10 @@ def log_habit(user, habit_id):
     except ValueError:
         return jsonify({"message": "completedOn must use YYYY-MM-DD format."}), 400
 
-    existing_log = HabitLog.query.filter_by(habit_id=habit.id, completed_on=completed_on).first()
+    existing_log = HabitLog.query.filter_by(
+        habit_id=habit.id,
+        completed_on=completed_on,
+    ).first()
     if existing_log:
         return jsonify({"message": "Habit already logged for that date."}), 400
 
@@ -293,7 +688,10 @@ def dashboard(user):
             "stats": {
                 "activeHabits": len(habits),
                 "totalPoints": user.points,
-                "longestStreak": max((habit.streak_count for habit in habits), default=0),
+                "longestStreak": max(
+                    (habit.streak_count for habit in habits),
+                    default=0,
+                ),
                 "recentCompletions": len(recent_logs),
             },
             "recentLogs": [
