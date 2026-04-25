@@ -6,12 +6,13 @@ from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import or_
 
 from .auth import build_session, hash_password, verify_password
-from .daily_tasks import all_daily_tasks
+from .daily_tasks import all_daily_tasks, find_daily_task
 from .extensions import db
 from .models import (
     FitnessLog,
     Habit,
     HabitLog,
+    DailyTaskCompletion,
     PrizeWheelSlice,
     PrizeWheelSpin,
     User,
@@ -23,58 +24,67 @@ api = Blueprint("api", __name__)
 
 DEFAULT_PRIZE_WHEEL_SLICES = [
     {
-        "label": "+5 points",
-        "description": "A small boost for the next round.",
-        "color": "#14b8a6",
-        "weight": 28,
+        "label": "-20 points",
+        "description": "Red slice: lose 20 coins.",
+        "color": "#ff001c",
+        "weight": 10,
         "reward_type": "points",
-        "reward_value": 5,
+        "reward_value": -20,
         "display_order": 0,
     },
     {
-        "label": "+15 points",
-        "description": "A solid arcade payout.",
-        "color": "#22c55e",
-        "weight": 22,
+        "label": "-10 points",
+        "description": "Orange slice: lose 10 coins.",
+        "color": "#ffae00",
+        "weight": 14,
         "reward_type": "points",
-        "reward_value": 15,
+        "reward_value": -10,
         "display_order": 1,
     },
     {
-        "label": "Spin refund",
-        "description": "Wins back the cost of this spin.",
-        "color": "#f59e0b",
-        "weight": 14,
+        "label": "+5 points",
+        "description": "Yellow slice: gain 5 coins.",
+        "color": "#fffb00",
+        "weight": 20,
         "reward_type": "points",
-        "reward_value": 25,
+        "reward_value": 5,
         "display_order": 2,
     },
     {
-        "label": "+50 points",
-        "description": "A rare points jackpot.",
-        "color": "#ef4444",
-        "weight": 6,
+        "label": "+15 points",
+        "description": "Green slice: gain 15 coins.",
+        "color": "#00f932",
+        "weight": 18,
         "reward_type": "points",
-        "reward_value": 50,
+        "reward_value": 15,
         "display_order": 3,
     },
     {
-        "label": "Arcade badge",
-        "description": "A collectible prize for the profile.",
-        "color": "#8b5cf6",
-        "weight": 10,
-        "reward_type": "badge",
-        "reward_value": 1,
+        "label": "+25 points",
+        "description": "Blue slice: gain 25 coins.",
+        "color": "#006dff",
+        "weight": 14,
+        "reward_type": "points",
+        "reward_value": 25,
         "display_order": 4,
     },
     {
-        "label": "Try again",
-        "description": "No prize this time.",
-        "color": "#64748b",
-        "weight": 20,
-        "reward_type": "nothing",
+        "label": "0 points",
+        "description": "Black slice: no extra coins.",
+        "color": "#111827",
+        "weight": 18,
+        "reward_type": "points",
         "reward_value": 0,
         "display_order": 5,
+    },
+    {
+        "label": "+50 points",
+        "description": "Pink slice: gain 50 coins.",
+        "color": "#fb00ff",
+        "weight": 6,
+        "reward_type": "points",
+        "reward_value": 50,
+        "display_order": 6,
     },
 ]
 
@@ -153,6 +163,16 @@ def serialize_user_prize(prize):
         "label": prize.label,
         "isRedeemed": prize.is_redeemed,
         "createdAt": prize.created_at.isoformat(),
+    }
+
+
+def serialize_daily_task_completion(completion):
+    return {
+        "id": completion.id,
+        "taskId": completion.task_id,
+        "completedOn": completion.completed_on.isoformat(),
+        "pointsAwarded": completion.points_awarded,
+        "createdAt": completion.created_at.isoformat(),
     }
 
 
@@ -257,12 +277,25 @@ def fitness_reward_settings():
 
 
 def ensure_default_prize_wheel_slices():
-    has_slices = PrizeWheelSlice.query.first() is not None
-    if has_slices:
-        return
+    default_display_orders = [
+        prize_slice["display_order"]
+        for prize_slice in DEFAULT_PRIZE_WHEEL_SLICES
+    ]
+    existing_slices = {
+        slice_.display_order: slice_
+        for slice_ in PrizeWheelSlice.query.filter(
+            PrizeWheelSlice.display_order.in_(default_display_orders)
+        )
+    }
 
     for prize_slice in DEFAULT_PRIZE_WHEEL_SLICES:
-        db.session.add(PrizeWheelSlice(**prize_slice))
+        existing_slice = existing_slices.get(prize_slice["display_order"])
+        if existing_slice:
+            for key, value in prize_slice.items():
+                setattr(existing_slice, key, value)
+        else:
+            db.session.add(PrizeWheelSlice(**prize_slice))
+
     db.session.commit()
 
 
@@ -292,7 +325,7 @@ def choose_weighted_slice(slices):
 
 def apply_prize_wheel_reward(user, spin):
     if spin.reward_type == "points":
-        user.points += spin.reward_value
+        user.points = max(0, user.points + spin.reward_value)
         user.level = calculate_level(user.points)
         return None
 
@@ -317,6 +350,76 @@ def health():
 @api.get("/tasks/daily")
 def daily_tasks():
     return jsonify({"tasks": all_daily_tasks()})
+
+
+@api.get("/tasks/daily/completions")
+@require_auth
+def daily_task_completions(user):
+    today = date.today()
+    completions = DailyTaskCompletion.query.filter_by(
+        user_id=user.id,
+        completed_on=today,
+    ).all()
+
+    return jsonify(
+        {
+            "completedTaskIds": [completion.task_id for completion in completions],
+            "completions": [
+                serialize_daily_task_completion(completion)
+                for completion in completions
+            ],
+            "user": serialize_user(user),
+        }
+    )
+
+
+@api.post("/tasks/daily/<task_id>/complete")
+@require_auth
+def complete_daily_task(user, task_id):
+    task = find_daily_task(task_id)
+    if not task:
+        return jsonify({"message": "Daily task not found."}), 404
+
+    today = date.today()
+    existing_completion = DailyTaskCompletion.query.filter_by(
+        user_id=user.id,
+        task_id=task.id,
+        completed_on=today,
+    ).first()
+    if existing_completion:
+        return (
+            jsonify(
+                {
+                    "message": "Daily task already completed today.",
+                    "completion": serialize_daily_task_completion(existing_completion),
+                    "user": serialize_user(user),
+                }
+            ),
+            400,
+        )
+
+    completion = DailyTaskCompletion(
+        user_id=user.id,
+        task_id=task.id,
+        completed_on=today,
+        points_awarded=task.coin_reward,
+    )
+    user.points += task.coin_reward
+    user.level = calculate_level(user.points)
+
+    db.session.add(completion)
+    db.session.commit()
+
+    return (
+        jsonify(
+            {
+                "message": "Daily task completed.",
+                "completion": serialize_daily_task_completion(completion),
+                "user": serialize_user(user),
+            }
+        ),
+        201,
+    )
 
 
 @api.post("/fitness/steps")
