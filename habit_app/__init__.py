@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, jsonify
+from flask import Flask, render_template
 
 from .extensions import db
 from .routes import api
@@ -56,23 +56,6 @@ def create_app():
 
     @app.get("/")
     def root():
-        return jsonify(
-            {
-                "name": "Exercise Arcade API",
-                "status": "ok",
-                "docs": {
-                    "health": "/api/health",
-                    "signup": "/api/auth/signup",
-                    "login": "/api/auth/login",
-                    "habits": "/api/habits",
-                    "dashboard": "/api/dashboard",
-                    "logFitnessSteps": "/api/fitness/steps",
-                    "fitnessSummary": "/api/fitness/summary",
-                    "fitnessHistory": "/api/fitness/history",
-                    "prizeWheel": "/api/arcade/prize-wheel",
-                    "spinPrizeWheel": "/api/arcade/prize-wheel/spin",
-                },
-            }
-        )
+        return render_template("index.html")
 
     return app

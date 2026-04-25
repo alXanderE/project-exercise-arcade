@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Exercise Arcade</title>
+    <style>
+      :root {
+        --bg: #f4efe6;
+        --panel: #fffaf2;
+        --panel-strong: #fff;
+        --text: #1f2933;
+        --muted: #5c6b73;
+        --accent: #0f766e;
+        --accent-strong: #115e59;
+        --gold: #f59e0b;
+        --gold-soft: #fcd34d;
+        --line: #e7dccb;
+        --danger: #b45309;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background:
+          radial-gradient(circle at top left, rgba(245, 158, 11, 0.18), transparent 28%),
+          radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 24%),
+          linear-gradient(180deg, #f8f3eb 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      .page {
+        width: min(1100px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 32px 0 40px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.3fr 0.7fr;
+        gap: 18px;
+        align-items: stretch;
+        margin-bottom: 24px;
+      }
+
+      .hero-panel,
+      .coin-panel,
+      .task-card,
+      .tip-panel {
+        background: rgba(255, 250, 242, 0.92);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 12px 30px rgba(31, 41, 51, 0.07);
+      }
+
+      .hero-panel {
+        padding: 28px;
+      }
+
+      .eyebrow {
+        display: inline-block;
+        margin-bottom: 12px;
+        color: var(--accent-strong);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      h1,
+      h2,
+      h3,
+      p {
+        margin-top: 0;
+      }
+
+      h1 {
+        font-size: clamp(2.1rem, 4vw, 3.8rem);
+        line-height: 0.96;
+        margin-bottom: 14px;
+      }
+
+      .hero-copy {
+        color: var(--muted);
+        max-width: 42rem;
+        font-size: 1.05rem;
+        line-height: 1.55;
+      }
+
+      .coin-panel {
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 100%;
+        background:
+          linear-gradient(180deg, rgba(252, 211, 77, 0.22), rgba(255, 250, 242, 0.96)),
+          var(--panel);
+      }
+
+      .coin-label {
+        color: var(--danger);
+        font-size: 0.9rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .coin-total {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: clamp(2.1rem, 5vw, 3.8rem);
+        font-weight: 700;
+        line-height: 1;
+      }
+
+      .coin-icon {
+        width: 54px;
+        height: 54px;
+        border-radius: 50%;
+        display: inline-grid;
+        place-items: center;
+        background: radial-gradient(circle at 30% 30%, #fde68a, var(--gold));
+        color: #6b3f00;
+        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7);
+        font-size: 1.4rem;
+      }
+
+      .coin-note {
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .task-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 18px;
+        margin-bottom: 18px;
+      }
+
+      .task-card {
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        min-height: 260px;
+      }
+
+      .task-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .task-tag,
+      .reward-badge {
+        font-size: 0.82rem;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 6px 10px;
+        background: var(--panel-strong);
+        white-space: nowrap;
+      }
+
+      .task-tag {
+        color: var(--accent-strong);
+      }
+
+      .reward-badge {
+        color: #7c4a03;
+        background: rgba(245, 158, 11, 0.12);
+      }
+
+      .task-card h3 {
+        font-size: 1.35rem;
+        margin-bottom: 10px;
+      }
+
+      .task-description {
+        color: var(--muted);
+        line-height: 1.55;
+        flex: 1;
+      }
+
+      .task-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-top: 18px;
+      }
+
+      .task-status {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+        font: inherit;
+      }
+
+      .complete-button,
+      .reset-button {
+        min-height: 44px;
+        padding: 0 16px;
+        transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+      }
+
+      .complete-button {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .complete-button:hover,
+      .reset-button:hover {
+        transform: translateY(-1px);
+      }
+
+      .complete-button:disabled {
+        background: #93a8a6;
+        cursor: default;
+        transform: none;
+      }
+
+      .tip-panel {
+        padding: 20px 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .tip-panel p {
+        color: var(--muted);
+        margin-bottom: 0;
+        line-height: 1.5;
+      }
+
+      .reset-button {
+        background: #f1e4cd;
+        color: #5b4a2e;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .task-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .tip-panel {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .reset-button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div class="hero-panel">
+          <span class="eyebrow">Exercise Arcade</span>
+          <h1>Finish today&rsquo;s training, cash in the coins.</h1>
+          <p class="hero-copy">
+            Each exercise task pays out coins when you complete it. Tap through the
+            list, watch the total climb, and use the page as a lightweight prototype
+            for the habit game loop.
+          </p>
+        </div>
+        <aside class="coin-panel">
+          <div>
+            <div class="coin-label">Coin Counter</div>
+            <div class="coin-total">
+              <span class="coin-icon">$</span>
+              <span id="coin-total">0</span>
+            </div>
+          </div>
+          <p class="coin-note" id="coin-note">
+            Complete a task to earn your first coins.
+          </p>
+        </aside>
+      </section>
+
+      <section class="task-grid" id="task-grid">
+        <article class="task-card" data-task-id="warmup-walk" data-reward="5">
+          <div class="task-top">
+            <span class="task-tag">Warmup</span>
+            <span class="reward-badge">+5 coins</span>
+          </div>
+          <h3>10 Minute Walk</h3>
+          <p class="task-description">
+            Loosen up, get outside, and pick up a little momentum before the heavier work.
+          </p>
+          <div class="task-footer">
+            <span class="task-status">Ready</span>
+            <button class="complete-button" type="button">Complete</button>
+          </div>
+        </article>
+
+        <article class="task-card" data-task-id="strength-circuit" data-reward="12">
+          <div class="task-top">
+            <span class="task-tag">Strength</span>
+            <span class="reward-badge">+12 coins</span>
+          </div>
+          <h3>Bodyweight Circuit</h3>
+          <p class="task-description">
+            Finish 3 rounds of squats, push-ups, and lunges with solid form and steady pacing.
+          </p>
+          <div class="task-footer">
+            <span class="task-status">Ready</span>
+            <button class="complete-button" type="button">Complete</button>
+          </div>
+        </article>
+
+        <article class="task-card" data-task-id="mobility-flow" data-reward="8">
+          <div class="task-top">
+            <span class="task-tag">Recovery</span>
+            <span class="reward-badge">+8 coins</span>
+          </div>
+          <h3>Mobility Flow</h3>
+          <p class="task-description">
+            Spend 12 minutes opening hips, shoulders, and hamstrings so tomorrow feels better too.
+          </p>
+          <div class="task-footer">
+            <span class="task-status">Ready</span>
+            <button class="complete-button" type="button">Complete</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="tip-panel">
+        <p>
+          Progress is saved in your browser for this page, so the coin total and completed
+          tasks stick around when you refresh.
+        </p>
+        <button class="reset-button" type="button" id="reset-progress">Reset Progress</button>
+      </section>
+    </main>
+
+    <script>
+      const storageKey = "exercise-arcade-front-page-state";
+      const defaultState = {
+        coins: 0,
+        completedTaskIds: []
+      };
+
+      function loadState() {
+        try {
+          const parsed = JSON.parse(window.localStorage.getItem(storageKey));
+          if (!parsed || typeof parsed !== "object") {
+            return { ...defaultState };
+          }
+
+          return {
+            coins: Number(parsed.coins) || 0,
+            completedTaskIds: Array.isArray(parsed.completedTaskIds) ? parsed.completedTaskIds : []
+          };
+        } catch {
+          return { ...defaultState };
+        }
+      }
+
+      function saveState(state) {
+        window.localStorage.setItem(storageKey, JSON.stringify(state));
+      }
+
+      const state = loadState();
+      const coinTotal = document.getElementById("coin-total");
+      const coinNote = document.getElementById("coin-note");
+      const taskCards = Array.from(document.querySelectorAll(".task-card"));
+
+      function updateCoinDisplay() {
+        coinTotal.textContent = String(state.coins);
+        if (state.coins === 0) {
+          coinNote.textContent = "Complete a task to earn your first coins.";
+        } else if (state.completedTaskIds.length === taskCards.length) {
+          coinNote.textContent = "All tasks cleared. Your training board is fully completed.";
+        } else {
+          coinNote.textContent = "Nice work. Each completed task adds to your total coin stash.";
+        }
+      }
+
+      function updateTaskCard(taskCard) {
+        const taskId = taskCard.dataset.taskId;
+        const isComplete = state.completedTaskIds.includes(taskId);
+        const button = taskCard.querySelector(".complete-button");
+        const status = taskCard.querySelector(".task-status");
+
+        button.disabled = isComplete;
+        button.textContent = isComplete ? "Completed" : "Complete";
+        status.textContent = isComplete ? "Reward claimed" : "Ready";
+      }
+
+      taskCards.forEach((taskCard) => {
+        updateTaskCard(taskCard);
+
+        const button = taskCard.querySelector(".complete-button");
+        button.addEventListener("click", () => {
+          const taskId = taskCard.dataset.taskId;
+          const reward = Number(taskCard.dataset.reward) || 0;
+
+          if (state.completedTaskIds.includes(taskId)) {
+            return;
+          }
+
+          state.completedTaskIds.push(taskId);
+          state.coins += reward;
+          saveState(state);
+          updateTaskCard(taskCard);
+          updateCoinDisplay();
+        });
+      });
+
+      document.getElementById("reset-progress").addEventListener("click", () => {
+        state.coins = 0;
+        state.completedTaskIds = [];
+        saveState(state);
+        taskCards.forEach(updateTaskCard);
+        updateCoinDisplay();
+      });
+
+      updateCoinDisplay();
+    </script>
+  </body>
+</html>

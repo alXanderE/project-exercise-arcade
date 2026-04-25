@@ -4,6 +4,7 @@ This repo now contains a basic Flask starter for an exercise habit gamification 
 
 ## What is included
 
+- Front page with exercise tasks, complete buttons, and a live coin counter
 - Flask app factory setup
 - SQLite database via Flask-SQLAlchemy
 - Cookie-based session auth
@@ -22,6 +23,7 @@ python app.py
 ```
 
 The database is created automatically on first start using `sqlite:///exercise_arcade.db`.
+Open `http://127.0.0.1:5000` to see the front end page.
 
 ## API routes
 
