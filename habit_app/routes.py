@@ -24,69 +24,88 @@ api = Blueprint("api", __name__)
 
 DEFAULT_PRIZE_WHEEL_SLICES = [
     {
-        "label": "-20 points",
-        "description": "Red slice: lose 20 coins.",
+        "label": "Red",
+        "description": "Get the full spin cost back.",
         "color": "#ff001c",
         "weight": 10,
-        "reward_type": "points",
-        "reward_value": -20,
+        "reward_type": "spin_multiplier",
+        "reward_value": 100,
         "display_order": 0,
     },
     {
-        "label": "-10 points",
-        "description": "Orange slice: lose 10 coins.",
+        "label": "Orange",
+        "description": "Get half the spin cost back.",
         "color": "#ffae00",
         "weight": 14,
-        "reward_type": "points",
-        "reward_value": -10,
+        "reward_type": "spin_multiplier",
+        "reward_value": 50,
         "display_order": 1,
     },
     {
-        "label": "+5 points",
-        "description": "Yellow slice: gain 5 coins.",
+        "label": "Yellow",
+        "description": "Get 10% of the spin cost back.",
         "color": "#fffb00",
         "weight": 20,
-        "reward_type": "points",
-        "reward_value": 5,
+        "reward_type": "spin_multiplier",
+        "reward_value": 10,
         "display_order": 2,
     },
     {
-        "label": "+15 points",
-        "description": "Green slice: gain 15 coins.",
+        "label": "Green",
+        "description": "No coins back.",
         "color": "#00f932",
         "weight": 18,
-        "reward_type": "points",
-        "reward_value": 15,
+        "reward_type": "spin_multiplier",
+        "reward_value": 0,
         "display_order": 3,
     },
     {
-        "label": "+25 points",
-        "description": "Blue slice: gain 25 coins.",
-        "color": "#006dff",
+        "label": "Light Blue",
+        "description": "Get twice the spin cost back.",
+        "color": "#4fd8ff",
         "weight": 14,
-        "reward_type": "points",
-        "reward_value": 25,
+        "reward_type": "spin_multiplier",
+        "reward_value": 200,
         "display_order": 4,
     },
     {
-        "label": "0 points",
-        "description": "Black slice: no extra coins.",
-        "color": "#111827",
+        "label": "Dark Blue",
+        "description": "Get 20% of the spin cost back.",
+        "color": "#006dff",
         "weight": 18,
-        "reward_type": "points",
-        "reward_value": 0,
+        "reward_type": "spin_multiplier",
+        "reward_value": 20,
         "display_order": 5,
     },
     {
-        "label": "+50 points",
-        "description": "Pink slice: gain 50 coins.",
-        "color": "#fb00ff",
-        "weight": 6,
-        "reward_type": "points",
-        "reward_value": 50,
+        "label": "Dark Purple",
+        "description": "Lose the spin cost and the same amount again.",
+        "color": "#4c1d95",
+        "weight": 8,
+        "reward_type": "spin_multiplier",
+        "reward_value": -100,
         "display_order": 6,
     },
+    {
+        "label": "Pink",
+        "description": "Get three times the spin cost back.",
+        "color": "#fb00ff",
+        "weight": 8,
+        "reward_type": "spin_multiplier",
+        "reward_value": 300,
+        "display_order": 7,
+    },
 ]
+
+
+def calculate_spin_reward(points_spent, reward_type, reward_value):
+    if reward_type == "spin_multiplier":
+        return int(points_spent * reward_value // 100)
+
+    if reward_type == "points":
+        return reward_value
+
+    return 0
 
 
 def serialize_user(user):
@@ -296,6 +315,11 @@ def ensure_default_prize_wheel_slices():
         else:
             db.session.add(PrizeWheelSlice(**prize_slice))
 
+    for slice_ in PrizeWheelSlice.query.filter(
+        ~PrizeWheelSlice.display_order.in_(default_display_orders)
+    ):
+        slice_.is_active = False
+
     db.session.commit()
 
 
@@ -324,6 +348,16 @@ def choose_weighted_slice(slices):
 
 
 def apply_prize_wheel_reward(user, spin):
+    if spin.reward_type == "spin_multiplier":
+        user.points = max(
+            0,
+            user.points + calculate_spin_reward(
+                spin.points_spent, spin.reward_type, spin.reward_value
+            ),
+        )
+        user.level = calculate_level(user.points)
+        return None
+
     if spin.reward_type == "points":
         user.points = max(0, user.points + spin.reward_value)
         user.level = calculate_level(user.points)

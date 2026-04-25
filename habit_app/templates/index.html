@@ -782,7 +782,6 @@
                 class="criteria-image"
                 src="/assets/wheel-criteria.png"
               >
-              <div class="criteria-list" id="criteria-list"></div>
             </aside>
           </div>
           <div class="wheel-copy">
@@ -914,12 +913,14 @@
         }
       ];
       const fallbackPrizeWheelSlices = [
-        { id: 1, label: "+5 coins", color: "#14b8a6", weight: 28, rewardValue: 5, displayOrder: 0 },
-        { id: 2, label: "+15 coins", color: "#22c55e", weight: 22, rewardValue: 15, displayOrder: 1 },
-        { id: 3, label: "Spin refund", color: "#f59e0b", weight: 14, rewardValue: 20, displayOrder: 2 },
-        { id: 4, label: "+50 coins", color: "#ef4444", weight: 6, rewardValue: 50, displayOrder: 3 },
-        { id: 5, label: "Arcade badge", color: "#8b5cf6", weight: 10, rewardValue: 0, displayOrder: 4 },
-        { id: 6, label: "Try again", color: "#64748b", weight: 20, rewardValue: 0, displayOrder: 5 }
+        { id: 1, label: "Red", color: "#ff001c", weight: 10, rewardType: "spin_multiplier", rewardValue: 100, displayOrder: 0 },
+        { id: 2, label: "Orange", color: "#ffae00", weight: 14, rewardType: "spin_multiplier", rewardValue: 50, displayOrder: 1 },
+        { id: 3, label: "Yellow", color: "#fffb00", weight: 20, rewardType: "spin_multiplier", rewardValue: 10, displayOrder: 2 },
+        { id: 4, label: "Green", color: "#00f932", weight: 18, rewardType: "spin_multiplier", rewardValue: 0, displayOrder: 3 },
+        { id: 5, label: "Light Blue", color: "#4fd8ff", weight: 14, rewardType: "spin_multiplier", rewardValue: 200, displayOrder: 4 },
+        { id: 6, label: "Dark Blue", color: "#006dff", weight: 18, rewardType: "spin_multiplier", rewardValue: 20, displayOrder: 5 },
+        { id: 7, label: "Dark Purple", color: "#4c1d95", weight: 8, rewardType: "spin_multiplier", rewardValue: -100, displayOrder: 6 },
+        { id: 8, label: "Pink", color: "#fb00ff", weight: 8, rewardType: "spin_multiplier", rewardValue: 300, displayOrder: 7 }
       ];
       const defaultTaskState = {
         lifetimeCoins: 0,
@@ -1088,6 +1089,36 @@
 
       function calculateLevel(points) {
         return Math.max(1, Math.floor((points || 0) / 100) + 1);
+      }
+
+      function calculateSpinReward(pointsSpent, slice) {
+        if ((slice.rewardType || "points") === "spin_multiplier") {
+          return Math.floor(pointsSpent * ((Number(slice.rewardValue) || 0) / 100));
+        }
+
+        return Number(slice.rewardValue) || 0;
+      }
+
+      function describeSpinReward(slice, pointsSpent) {
+        const reward = calculateSpinReward(pointsSpent, slice);
+
+        if ((slice.rewardType || "points") === "spin_multiplier") {
+          if (reward > 0) {
+            return `+${formatNumber(reward)} coins`;
+          }
+          if (reward < 0) {
+            return `${formatNumber(reward)} coins`;
+          }
+          return "0 coins back";
+        }
+
+        if (reward > 0) {
+          return `+${formatNumber(reward)} coins`;
+        }
+        if (reward < 0) {
+          return `${formatNumber(reward)} coins`;
+        }
+        return "0 coins";
       }
 
       function cleanLocalAccounts() {
@@ -1371,7 +1402,7 @@
         }
 
         const winningSlice = chooseLocalPrizeWheelSlice();
-        const rewardValue = Number(winningSlice.rewardValue) || 0;
+        const rewardValue = calculateSpinReward(spinCost, winningSlice);
         const updatedUser = updateLocalUserPoints(-spinCost + rewardValue);
         const spin = {
           prizeLabel: winningSlice.label,
@@ -1725,6 +1756,7 @@
           : canSpin
             ? `${formatNumber(balance)} coins available`
             : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`;
+        renderCriteriaList();
       }
 
       function updatePrizeWheel(wheel) {
@@ -1749,9 +1781,8 @@
 
         for (const slice of slices) {
           const row = document.createElement("div");
-          const rewardValue = Number(slice.rewardValue) || 0;
+          const rewardValue = calculateSpinReward(appState.prizeWheel.spinCost || 20, slice);
           const pointsClass = rewardValue < 0 ? "is-loss" : "is-gain";
-          const sign = rewardValue > 0 ? "+" : "";
           row.className = "criteria-row";
           row.innerHTML = `
             <span
@@ -1760,7 +1791,7 @@
               aria-hidden="true"
             ></span>
             <span class="criteria-points ${pointsClass}">
-              ${sign}${formatNumber(rewardValue)} coins
+              ${describeSpinReward(slice, appState.prizeWheel.spinCost || 20)}
             </span>
           `;
           elements.criteriaList.append(row);
@@ -2117,6 +2148,7 @@
                 method: "POST",
                 body: JSON.stringify(payload)
               });
+          updateCoinDisplay(result.user);
           setMessage(`Saved. Point change: ${formatNumber(result.pointsDelta)}.`);
           await refreshFitness();
         } catch (error) {
