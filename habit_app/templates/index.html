@@ -453,6 +453,24 @@
         margin-bottom: 18px;
       }
 
+      .task-toolbar {
+        margin-bottom: 18px;
+      }
+
+      .custom-workout-form {
+        display: grid;
+        gap: 12px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+      }
+
+      .custom-workout-actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
       .task-card {
         display: flex;
         flex-direction: column;
@@ -710,6 +728,63 @@
         </div>
       </section>
 
+      <section class="app-panel task-toolbar">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Workouts</span>
+            <h2>Daily routines</h2>
+          </div>
+          <button class="secondary-button" id="show-custom-workout" type="button">
+            Add Workout
+          </button>
+        </div>
+        <p class="helper-text">
+          Server tasks load automatically. Custom workouts are saved on this device.
+        </p>
+        <form class="custom-workout-form hidden" id="custom-workout-form">
+          <label>
+            <span>Workout name</span>
+            <input id="custom-workout-title" maxlength="80" required type="text">
+          </label>
+          <label>
+            <span>Category</span>
+            <input
+              id="custom-workout-category"
+              maxlength="40"
+              placeholder="Cardio, Strength, Recovery"
+              required
+              type="text"
+            >
+          </label>
+          <label>
+            <span>Description</span>
+            <input
+              id="custom-workout-description"
+              maxlength="180"
+              required
+              type="text"
+            >
+          </label>
+          <label>
+            <span>Daily coin reward</span>
+            <input
+              id="custom-workout-reward"
+              max="50"
+              min="1"
+              required
+              type="number"
+              value="10"
+            >
+          </label>
+          <div class="custom-workout-actions">
+            <button class="primary-button" type="submit">Save Workout</button>
+            <button class="secondary-button" id="cancel-custom-workout" type="button">
+              Cancel
+            </button>
+          </div>
+        </form>
+      </section>
+
       <section class="task-grid" id="task-grid"></section>
 
       <section class="app-panel hidden" id="history-panel">
@@ -737,7 +812,8 @@
       const storageKey = "exercise-arcade-front-page-state";
       const defaultTaskState = {
         lifetimeCoins: 0,
-        completionsByDate: {}
+        completionsByDate: {},
+        customTasks: []
       };
       const appState = {
         authMode: "login",
@@ -797,7 +873,16 @@
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
         taskGrid: document.getElementById("task-grid"),
-        resetProgress: document.getElementById("reset-progress")
+        resetProgress: document.getElementById("reset-progress"),
+        showCustomWorkout: document.getElementById("show-custom-workout"),
+        customWorkoutForm: document.getElementById("custom-workout-form"),
+        cancelCustomWorkout: document.getElementById("cancel-custom-workout"),
+        customWorkoutTitle: document.getElementById("custom-workout-title"),
+        customWorkoutCategory: document.getElementById("custom-workout-category"),
+        customWorkoutDescription: document.getElementById(
+          "custom-workout-description"
+        ),
+        customWorkoutReward: document.getElementById("custom-workout-reward")
       };
 
       function loadTaskState() {
@@ -812,7 +897,10 @@
             completionsByDate:
               parsed.completionsByDate && typeof parsed.completionsByDate === "object"
                 ? parsed.completionsByDate
-                : {}
+                : {},
+            customTasks: Array.isArray(parsed.customTasks)
+              ? parsed.customTasks
+              : []
           };
         } catch {
           return { ...defaultTaskState };
@@ -836,6 +924,33 @@
         return new Intl.NumberFormat().format(value || 0);
       }
 
+      function slugify(value) {
+        return value
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "");
+      }
+
+      function cleanCustomTasks() {
+        return taskState.customTasks
+          .filter((task) => task && typeof task === "object")
+          .map((task) => ({
+            id: String(task.id || ""),
+            title: String(task.title || "").trim(),
+            category: String(task.category || "Custom").trim(),
+            description: String(task.description || "").trim(),
+            coin_reward: Math.min(
+              50,
+              Math.max(1, Number.parseInt(task.coin_reward, 10) || 1)
+            ),
+            difficulty: "custom",
+            frequency: "daily",
+            is_custom: true
+          }))
+          .filter((task) => task.id && task.title && task.description);
+      }
+
       function currentDailyCompletedIds() {
         const today = todayIso();
         const ids = taskState.completionsByDate[today];
@@ -851,18 +966,40 @@
         article.className = "task-card";
         article.dataset.taskId = task.id;
         article.dataset.reward = String(task.coin_reward);
-        article.innerHTML = `
-          <div class="task-top">
-            <span class="task-tag">${task.category}</span>
-            <span class="reward-badge">+${task.coin_reward} daily coins</span>
-          </div>
-          <h3>${task.title}</h3>
-          <p class="task-description">${task.description}</p>
-          <div class="task-footer">
-            <span class="task-status">Ready</span>
-            <button class="complete-button" type="button">Complete</button>
-          </div>
-        `;
+
+        const top = document.createElement("div");
+        top.className = "task-top";
+
+        const tag = document.createElement("span");
+        tag.className = "task-tag";
+        tag.textContent = task.is_custom ? `${task.category} custom` : task.category;
+
+        const reward = document.createElement("span");
+        reward.className = "reward-badge";
+        reward.textContent = `+${task.coin_reward} daily coins`;
+
+        const title = document.createElement("h3");
+        title.textContent = task.title;
+
+        const description = document.createElement("p");
+        description.className = "task-description";
+        description.textContent = task.description;
+
+        const footer = document.createElement("div");
+        footer.className = "task-footer";
+
+        const status = document.createElement("span");
+        status.className = "task-status";
+        status.textContent = "Ready";
+
+        const button = document.createElement("button");
+        button.className = "complete-button";
+        button.type = "button";
+        button.textContent = "Complete";
+
+        top.append(tag, reward);
+        footer.append(status, button);
+        article.append(top, title, description, footer);
         return article;
       }
 
@@ -889,6 +1026,56 @@
           elements.taskGrid.append(taskCard);
           updateTaskCard(taskCard);
         }
+      }
+
+      function toggleCustomWorkoutForm(show) {
+        elements.customWorkoutForm.classList.toggle("hidden", !show);
+        elements.showCustomWorkout.classList.toggle("hidden", show);
+
+        if (show) {
+          elements.customWorkoutTitle.focus();
+        } else {
+          elements.customWorkoutForm.reset();
+          elements.customWorkoutReward.value = "10";
+        }
+      }
+
+      function createCustomWorkout(event) {
+        event.preventDefault();
+
+        const title = elements.customWorkoutTitle.value.trim();
+        const category = elements.customWorkoutCategory.value.trim();
+        const description = elements.customWorkoutDescription.value.trim();
+        const reward = Math.min(
+          50,
+          Math.max(1, Number.parseInt(elements.customWorkoutReward.value, 10) || 1)
+        );
+
+        if (!title || !category || !description) {
+          setMessage("Add a name, category, and description.", true);
+          return;
+        }
+
+        const idBase = slugify(title) || "custom-workout";
+        const customTask = {
+          id: `custom-${idBase}-${Date.now()}`,
+          title,
+          category,
+          description,
+          coin_reward: reward,
+          difficulty: "custom",
+          frequency: "daily",
+          is_custom: true
+        };
+
+        taskState.customTasks = cleanCustomTasks();
+        taskState.customTasks.push(customTask);
+        saveTaskState(taskState);
+        appState.tasks.push(customTask);
+        renderTaskCards();
+        updateLocalCoinDisplay();
+        toggleCustomWorkoutForm(false);
+        setMessage(`${title} was added to your daily routines.`);
       }
 
       function setMessage(text, isError = false) {
@@ -1204,7 +1391,10 @@
 
       async function loadDailyTasks() {
         const result = await apiFetch("/api/tasks/daily");
-        appState.tasks = Array.isArray(result.tasks) ? result.tasks : [];
+        const serverTasks = Array.isArray(result.tasks) ? result.tasks : [];
+        taskState.customTasks = cleanCustomTasks();
+        appState.tasks = [...serverTasks, ...taskState.customTasks];
+        saveTaskState(taskState);
         renderTaskCards();
         updateLocalCoinDisplay();
       }
@@ -1289,6 +1479,13 @@
       elements.logoutButton.addEventListener("click", handleLogout);
       elements.steps.addEventListener("input", updatePreview);
       elements.spinWheelButton.addEventListener("click", handlePrizeWheelSpin);
+      elements.showCustomWorkout.addEventListener("click", () => {
+        toggleCustomWorkoutForm(true);
+      });
+      elements.cancelCustomWorkout.addEventListener("click", () => {
+        toggleCustomWorkoutForm(false);
+      });
+      elements.customWorkoutForm.addEventListener("submit", createCustomWorkout);
 
       setAuthMode("login");
       updatePreview();
