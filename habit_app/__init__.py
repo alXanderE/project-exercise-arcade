@@ -59,4 +59,8 @@ def create_app():
     def root():
         return render_template("index.html")
 
+    @app.get("/login")
+    def login():
+        return render_template("login.html")
+
     return app
