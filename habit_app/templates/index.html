@@ -1996,12 +1996,14 @@
             await refreshFitness();
             return;
           } catch {
-            if (localUser.localMode) {
-              appState.user = localUser;
-              showAuthedShell(localUser);
-              await refreshFitness();
-              return;
-            }
+            const offlineUser = {
+              ...localUser,
+              localMode: true
+            };
+            setCurrentLocalAccount(offlineUser);
+            showAuthedShell(offlineUser);
+            await refreshFitness();
+            return;
           }
         }
 
@@ -2127,9 +2129,15 @@
             return;
           }
 
-          setCurrentLocalAccount(localUser);
+          setCurrentLocalAccount({
+            ...localUser,
+            localMode: true
+          });
           elements.password.value = "";
-          showAuthedShell(localUser);
+          showAuthedShell({
+            ...localUser,
+            localMode: true
+          });
           await refreshFitness();
           setMessage("Logged in with your browser-saved account.");
         }
