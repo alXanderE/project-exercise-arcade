@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 
 from flask import Blueprint, current_app, jsonify, request
+from sqlalchemy import or_
 
 from .auth import build_session, hash_password, verify_password
 from .daily_tasks import all_daily_tasks
@@ -537,6 +538,10 @@ def signup():
     if existing_user:
         return jsonify({"message": "An account with that email already exists."}), 400
 
+    existing_display_name = User.query.filter_by(display_name=display_name).first()
+    if existing_display_name:
+        return jsonify({"message": "That display name is already taken."}), 400
+
     user = User(
         email=email,
         display_name=display_name,
@@ -553,12 +558,18 @@ def signup():
 @api.post("/auth/login")
 def login():
     payload = request.get_json(silent=True) or {}
-    email = (payload.get("email") or "").strip().lower()
+    identifier = (payload.get("identifier") or payload.get("email") or "").strip()
     password = payload.get("password") or ""
 
-    user = User.query.filter_by(email=email).first()
+    normalized_identifier = identifier.lower()
+    user = User.query.filter(
+        or_(
+            User.email == normalized_identifier,
+            User.display_name == identifier,
+        )
+    ).first()
     if not user or not verify_password(password, user.password_hash):
-        return jsonify({"message": "Invalid email or password."}), 401
+        return jsonify({"message": "Invalid email, display name, or password."}), 401
 
     response = jsonify({"message": "Logged in.", "user": serialize_user(user)})
     login_user(response, user)

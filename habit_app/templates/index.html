@@ -607,7 +607,7 @@
               <input id="display-name" name="displayName" type="text">
             </label>
             <label>
-              <span>Email</span>
+              <span id="identifier-label">Email</span>
               <input id="email" name="email" required type="email">
             </label>
             <label>
@@ -846,6 +846,7 @@
         authSubmit: document.getElementById("auth-submit"),
         displayNameField: document.getElementById("display-name-field"),
         displayName: document.getElementById("display-name"),
+        identifierLabel: document.getElementById("identifier-label"),
         email: document.getElementById("email"),
         password: document.getElementById("password"),
         logoutButton: document.getElementById("logout-button"),
@@ -1121,6 +1122,10 @@
         elements.signupTab.classList.toggle("is-active", isSignup);
         elements.displayNameField.classList.toggle("hidden", !isSignup);
         elements.displayName.required = isSignup;
+        elements.identifierLabel.textContent = isSignup ? "Email" : "Email or display name";
+        elements.email.type = isSignup ? "email" : "text";
+        elements.email.autocomplete = isSignup ? "email" : "username";
+        elements.email.placeholder = isSignup ? "" : "Email or display name";
         elements.authSubmit.textContent = isSignup ? "Create Account" : "Log in";
       }
 
@@ -1402,19 +1407,43 @@
       async function handleAuth(event) {
         event.preventDefault();
 
-        const payload = {
-          email: elements.email.value,
-          password: elements.password.value
-        };
-
         if (appState.authMode === "signup") {
-          payload.displayName = elements.displayName.value;
+          try {
+            const result = await apiFetch("/api/auth/signup", {
+              method: "POST",
+              body: JSON.stringify({
+                email: elements.email.value,
+                displayName: elements.displayName.value,
+                password: elements.password.value
+              })
+            });
+            elements.password.value = "";
+            showAuthedShell(result.user);
+            setMessage("");
+
+            try {
+              await refreshFitness();
+            } catch (error) {
+              setMessage(
+                "Account created, but the dashboard could not fully sync yet. " +
+                "Try refreshing in a moment.",
+                true
+              );
+            }
+          } catch (error) {
+            setMessage(error.message, true);
+          }
+
+          return;
         }
 
         try {
-          const result = await apiFetch(`/api/auth/${appState.authMode}`, {
+          const result = await apiFetch("/api/auth/login", {
             method: "POST",
-            body: JSON.stringify(payload)
+            body: JSON.stringify({
+              identifier: elements.email.value,
+              password: elements.password.value
+            })
           });
           elements.password.value = "";
           showAuthedShell(result.user);
