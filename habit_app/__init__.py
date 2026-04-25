@@ -1,6 +1,6 @@
 import os
 
-from flask import Flask, render_template
+from flask import Flask, render_template, send_from_directory
 
 from .extensions import db
 from .routes import api
@@ -31,7 +31,7 @@ def create_app():
         "exercise_arcade_session",
     )
     app.config["SESSION_DAYS"] = int(os.getenv("SESSION_DAYS", "30"))
-    app.config["PRIZE_WHEEL_SPIN_COST"] = int(os.getenv("PRIZE_WHEEL_SPIN_COST", "25"))
+    app.config["PRIZE_WHEEL_SPIN_COST"] = int(os.getenv("PRIZE_WHEEL_SPIN_COST", "20"))
     app.config["FITNESS_STEPS_PER_POINT"] = int(
         os.getenv("FITNESS_STEPS_PER_POINT", "1000")
     )
@@ -62,5 +62,12 @@ def create_app():
     @app.get("/login")
     def login():
         return render_template("login.html")
+
+    @app.get("/assets/prize-wheel.png")
+    def prize_wheel_asset():
+        return send_from_directory(
+            os.path.abspath(os.path.join(app.root_path, "..")),
+            "pixilart-drawing.png",
+        )
 
     return app

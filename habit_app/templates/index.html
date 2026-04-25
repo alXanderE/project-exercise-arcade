@@ -66,7 +66,8 @@
       .task-card,
       .tip-panel,
       .app-panel,
-      .metric-card {
+      .metric-card,
+      .wheel-result {
         background: rgba(255, 250, 242, 0.92);
         border: 1px solid var(--line);
         border-radius: 8px;
@@ -341,6 +342,110 @@
         white-space: nowrap;
       }
 
+      .wheel-panel {
+        margin-bottom: 18px;
+      }
+
+      .wheel-layout {
+        display: grid;
+        grid-template-columns: minmax(220px, 0.78fr) 1fr;
+        gap: 22px;
+        align-items: center;
+      }
+
+      .wheel-stage {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-height: 260px;
+      }
+
+      .wheel-pointer {
+        position: absolute;
+        top: 2px;
+        z-index: 2;
+        width: 0;
+        height: 0;
+        border-left: 18px solid transparent;
+        border-right: 18px solid transparent;
+        border-top: 30px solid var(--danger);
+        filter: drop-shadow(0 3px 2px rgba(31, 41, 51, 0.22));
+      }
+
+      .wheel-image {
+        width: min(260px, 72vw);
+        aspect-ratio: 1;
+        object-fit: contain;
+        transform: rotate(0deg);
+        transition: transform 1800ms cubic-bezier(0.12, 0.72, 0.18, 1);
+        transform-origin: 50% 50%;
+      }
+
+      .wheel-image.is-spinning {
+        filter: drop-shadow(0 10px 20px rgba(31, 41, 51, 0.18));
+      }
+
+      .wheel-copy {
+        display: grid;
+        gap: 14px;
+      }
+
+      .wheel-copy h2 {
+        margin-bottom: 0;
+      }
+
+      .wheel-result {
+        box-shadow: none;
+        padding: 14px;
+        min-height: 74px;
+      }
+
+      .wheel-result span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.9rem;
+        margin-bottom: 5px;
+      }
+
+      .wheel-result strong {
+        font-size: 1.35rem;
+      }
+
+      .wheel-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .spin-button {
+        min-height: 48px;
+        padding: 0 20px;
+        background: var(--gold);
+        color: #5f3700;
+        font-weight: 700;
+        transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+      }
+
+      .spin-button:hover {
+        transform: translateY(-1px);
+      }
+
+      .spin-button:disabled {
+        cursor: default;
+        opacity: 0.58;
+        transform: none;
+      }
+
+      .spin-history {
+        display: grid;
+        gap: 8px;
+      }
+
+      .spin-history .history-item:first-child {
+        border-top: 1px solid var(--line);
+      }
+
       .task-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -420,7 +525,8 @@
       @media (max-width: 900px) {
         .hero,
         .app-grid,
-        .task-grid {
+        .task-grid,
+        .wheel-layout {
           grid-template-columns: 1fr;
         }
 
@@ -570,12 +676,45 @@
         </div>
       </section>
 
+      <section class="app-panel wheel-panel hidden" id="prize-wheel-panel">
+        <div class="wheel-layout">
+          <div class="wheel-stage">
+            <div class="wheel-pointer" aria-hidden="true"></div>
+            <img
+              alt="Prize wheel"
+              class="wheel-image"
+              id="prize-wheel-image"
+              src="/assets/prize-wheel.png"
+            >
+          </div>
+          <div class="wheel-copy">
+            <div>
+              <span class="eyebrow">Arcade</span>
+              <h2>Prize wheel</h2>
+              <p class="helper-text" id="wheel-cost-note">
+                Spin for 20 coins.
+              </p>
+            </div>
+            <div class="wheel-result" aria-live="polite">
+              <span>Latest prize</span>
+              <strong id="wheel-result">Ready to spin</strong>
+            </div>
+            <div class="wheel-actions">
+              <button class="spin-button" id="spin-wheel-button" type="button">
+                Spin - 20 coins
+              </button>
+              <span class="helper-text" id="wheel-balance-note"></span>
+            </div>
+            <div class="spin-history" id="spin-history"></div>
+          </div>
+        </div>
+      </section>
+
       <section class="task-grid" id="task-grid"></section>
 
       <section class="app-panel hidden" id="history-panel">
         <div class="section-head">
           <h2>Recent step logs</h2>
-          <a href="/api/arcade/prize-wheel">Prize wheel API</a>
         </div>
         <div class="history-list" id="history-list"></div>
       </section>
@@ -609,6 +748,13 @@
           dailyStepCap: 20000,
           dailyGoalSteps: 10000,
           dailyGoalBonus: 5
+        },
+        prizeWheel: {
+          spinCost: 20,
+          slices: [],
+          spins: [],
+          isSpinning: false,
+          rotation: 0
         }
       };
 
@@ -617,6 +763,7 @@
         fitnessPanel: document.getElementById("fitness-panel"),
         summaryPanel: document.getElementById("summary-panel"),
         historyPanel: document.getElementById("history-panel"),
+        prizeWheelPanel: document.getElementById("prize-wheel-panel"),
         loginTab: document.getElementById("login-tab"),
         signupTab: document.getElementById("signup-tab"),
         authForm: document.getElementById("auth-form"),
@@ -641,6 +788,12 @@
         goalLabel: document.getElementById("goal-label"),
         totalSteps: document.getElementById("total-steps"),
         goalProgress: document.getElementById("goal-progress"),
+        prizeWheelImage: document.getElementById("prize-wheel-image"),
+        spinWheelButton: document.getElementById("spin-wheel-button"),
+        wheelCostNote: document.getElementById("wheel-cost-note"),
+        wheelBalanceNote: document.getElementById("wheel-balance-note"),
+        wheelResult: document.getElementById("wheel-result"),
+        spinHistory: document.getElementById("spin-history"),
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
         taskGrid: document.getElementById("task-grid"),
@@ -817,6 +970,7 @@
       function updateCoinDisplay(user) {
         appState.user = user;
         updateLocalCoinDisplay();
+        updatePrizeWheelControls();
       }
 
       function updateTaskCard(taskCard) {
@@ -851,6 +1005,107 @@
         updatePreview();
       }
 
+      function updatePrizeWheelControls() {
+        const cost = appState.prizeWheel.spinCost;
+        const balance = appState.user?.points || 0;
+        const canSpin = Boolean(appState.user) && balance >= cost;
+
+        elements.wheelCostNote.textContent = `Spin for ${formatNumber(cost)} coins.`;
+        elements.spinWheelButton.textContent = appState.prizeWheel.isSpinning
+          ? "Spinning..."
+          : `Spin - ${formatNumber(cost)} coins`;
+        elements.spinWheelButton.disabled = appState.prizeWheel.isSpinning || !canSpin;
+        elements.wheelBalanceNote.textContent = canSpin
+          ? `${formatNumber(balance)} coins available`
+          : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`;
+      }
+
+      function updatePrizeWheel(wheel) {
+        appState.prizeWheel.spinCost = wheel.spinCost || appState.prizeWheel.spinCost;
+        appState.prizeWheel.slices = Array.isArray(wheel.slices) ? wheel.slices : [];
+        updateCoinDisplay(wheel.user);
+        updatePrizeWheelControls();
+      }
+
+      function updateSpinHistory(history) {
+        const spins = Array.isArray(history.spins) ? history.spins : [];
+        appState.prizeWheel.spins = spins;
+        elements.spinHistory.innerHTML = "";
+
+        if (!spins.length) {
+          const empty = document.createElement("p");
+          empty.className = "history-empty";
+          empty.textContent = "No wheel spins yet.";
+          elements.spinHistory.append(empty);
+          return;
+        }
+
+        for (const spin of spins.slice(0, 4)) {
+          const item = document.createElement("article");
+          item.className = "history-item";
+          item.innerHTML = `
+            <div class="history-main">
+              <strong>${spin.prizeLabel}</strong>
+              <span class="history-date">${new Date(spin.createdAt).toLocaleString()}</span>
+            </div>
+            <span class="history-points">-${formatNumber(spin.pointsSpent)}</span>
+          `;
+          elements.spinHistory.append(item);
+        }
+      }
+
+      function winningSliceRotation(winningSlice) {
+        const slices = appState.prizeWheel.slices;
+        const index = slices.findIndex((slice) => slice.id === winningSlice.id);
+        const sliceCount = Math.max(slices.length, 1);
+        const sliceAngle = 360 / sliceCount;
+        const sliceCenter = index >= 0 ? index * sliceAngle + sliceAngle / 2 : 0;
+        return 360 - sliceCenter;
+      }
+
+      async function handlePrizeWheelSpin() {
+        if (appState.prizeWheel.isSpinning) {
+          return;
+        }
+
+        appState.prizeWheel.isSpinning = true;
+        elements.prizeWheelImage.classList.add("is-spinning");
+        elements.wheelResult.textContent = "Spinning...";
+        updatePrizeWheelControls();
+
+        try {
+          const result = await apiFetch("/api/arcade/prize-wheel/spin", {
+            method: "POST"
+          });
+          const extraTurns = 4 * 360;
+          const target = winningSliceRotation(result.winningSlice);
+          const current = ((appState.prizeWheel.rotation % 360) + 360) % 360;
+          const delta = (target - current + 360) % 360;
+          appState.prizeWheel.rotation += extraTurns + delta;
+          elements.prizeWheelImage.style.transform =
+            `rotate(${appState.prizeWheel.rotation}deg)`;
+
+          window.setTimeout(async () => {
+            elements.wheelResult.textContent = result.winningSlice.label;
+            appState.prizeWheel.isSpinning = false;
+            elements.prizeWheelImage.classList.remove("is-spinning");
+            updateCoinDisplay(result.user);
+            updatePrizeWheelControls();
+            updateSpinHistory(await apiFetch("/api/arcade/prize-wheel/history"));
+            setMessage(
+              `Wheel landed on ${result.winningSlice.label}. ` +
+              `Balance: ${formatNumber(result.user.points)} coins.`
+            );
+          }, 1850);
+        } catch (error) {
+          appState.prizeWheel.isSpinning = false;
+          elements.prizeWheelImage.classList.remove("is-spinning");
+          elements.wheelResult.textContent = "Ready to spin";
+          updatePrizeWheelControls();
+          setMessage(error.message, true);
+        }
+      }
+
       function updateHistory(history) {
         elements.historyList.innerHTML = "";
 
@@ -881,6 +1136,7 @@
         elements.fitnessPanel.classList.remove("hidden");
         elements.summaryPanel.classList.remove("hidden");
         elements.historyPanel.classList.remove("hidden");
+        elements.prizeWheelPanel.classList.remove("hidden");
       }
 
       function showLoggedOut() {
@@ -888,17 +1144,22 @@
         elements.fitnessPanel.classList.add("hidden");
         elements.summaryPanel.classList.add("hidden");
         elements.historyPanel.classList.add("hidden");
+        elements.prizeWheelPanel.classList.add("hidden");
         updateCoinDisplay(null);
       }
 
       async function refreshFitness() {
-        const [summary, history] = await Promise.all([
+        const [summary, history, wheel, wheelHistory] = await Promise.all([
           apiFetch("/api/fitness/summary"),
-          apiFetch("/api/fitness/history")
+          apiFetch("/api/fitness/history"),
+          apiFetch("/api/arcade/prize-wheel"),
+          apiFetch("/api/arcade/prize-wheel/history")
         ]);
 
         updateSummary(summary);
         updateHistory(history);
+        updatePrizeWheel(wheel);
+        updateSpinHistory(wheelHistory);
         showAuthed();
       }
 
@@ -989,6 +1250,7 @@
       elements.stepsForm.addEventListener("submit", handleSteps);
       elements.logoutButton.addEventListener("click", handleLogout);
       elements.steps.addEventListener("input", updatePreview);
+      elements.spinWheelButton.addEventListener("click", handlePrizeWheelSpin);
 
       setAuthMode("login");
       updatePreview();

@@ -4,7 +4,7 @@ This repo now contains a basic Flask starter for an exercise habit gamification 
 
 ## What is included
 
-- Front page with exercise tasks, complete buttons, account auth, step logging, and a live point counter
+- Front page with exercise tasks, complete buttons, account auth, step logging, a prize wheel, and a live point counter
 - Server-side daily task definitions in `habit_app/daily_tasks.py`
 - Flask app factory setup
 - SQLite database via Flask-SQLAlchemy
@@ -104,12 +104,12 @@ Spin the prize wheel:
 POST /api/arcade/prize-wheel/spin
 ```
 
-The server charges the configured spin cost, chooses a weighted prize slice, records the spin, applies the reward, and returns the winning slice so a client can animate the wheel toward the server-authoritative result.
+The server charges the configured spin cost, chooses a weighted prize slice, records the spin, applies the reward, and returns the winning slice so the client can animate the wheel toward the server-authoritative result. The front end uses `pixilart-drawing.png` for the wheel artwork.
 
 Configure the spin cost with:
 
 ```bash
-PRIZE_WHEEL_SPIN_COST=25
+PRIZE_WHEEL_SPIN_COST=20
 FITNESS_STEPS_PER_POINT=1000
 FITNESS_DAILY_STEP_CAP=20000
 FITNESS_DAILY_GOAL_STEPS=10000
