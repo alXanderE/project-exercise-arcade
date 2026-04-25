@@ -1004,7 +1004,7 @@
             password: String(account.password || ""),
             points: Math.max(0, Number.parseInt(account.points, 10) || 0),
             level: Math.max(1, Number.parseInt(account.level, 10) || 1),
-            localMode: true
+            localMode: Boolean(account.localMode)
           }))
           .filter((account) => account.id && account.email && account.displayName);
       }
@@ -1054,7 +1054,7 @@
           displayName: String(account.displayName || "").trim(),
           points: Math.max(0, Number.parseInt(account.points, 10) || 0),
           level: calculateLevel(account.points),
-          localMode: true
+          localMode: Boolean(account.localMode)
         };
 
         if (index >= 0) {
@@ -1667,10 +1667,23 @@
 
         const localUser = currentLocalAccount();
         if (localUser) {
-          appState.user = localUser;
-          showAuthedShell(localUser);
-          await refreshFitness();
-          return;
+          try {
+            const session = await apiFetch("/api/auth/session");
+            setCurrentLocalAccount({
+              ...session.user,
+              password: localUser.password,
+              localMode: false
+            });
+            await refreshFitness();
+            return;
+          } catch {
+            if (localUser.localMode) {
+              appState.user = localUser;
+              showAuthedShell(localUser);
+              await refreshFitness();
+              return;
+            }
+          }
         }
 
         try {
