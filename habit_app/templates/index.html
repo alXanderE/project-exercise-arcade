@@ -348,8 +348,15 @@
 
       .wheel-layout {
         display: grid;
-        grid-template-columns: minmax(220px, 0.78fr) 1fr;
+        grid-template-columns: minmax(320px, 1fr) 0.9fr;
         gap: 22px;
+        align-items: center;
+      }
+
+      .wheel-visuals {
+        display: grid;
+        grid-template-columns: minmax(210px, 1fr) minmax(150px, 0.72fr);
+        gap: 16px;
         align-items: center;
       }
 
@@ -383,6 +390,58 @@
 
       .wheel-image.is-spinning {
         filter: drop-shadow(0 10px 20px rgba(31, 41, 51, 0.18));
+      }
+
+      .criteria-card {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: stretch;
+        padding: 12px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-strong);
+      }
+
+      .criteria-image {
+        width: 18px;
+        height: 112px;
+        image-rendering: pixelated;
+      }
+
+      .criteria-list {
+        display: grid;
+        gap: 5px;
+        align-content: center;
+      }
+
+      .criteria-row {
+        display: grid;
+        grid-template-columns: 12px 1fr;
+        gap: 7px;
+        align-items: center;
+        min-height: 18px;
+        font-size: 0.84rem;
+        color: var(--text);
+      }
+
+      .criteria-swatch {
+        width: 12px;
+        height: 12px;
+        border: 1px solid rgba(31, 41, 51, 0.25);
+      }
+
+      .criteria-points {
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .criteria-points.is-loss {
+        color: var(--danger);
+      }
+
+      .criteria-points.is-gain {
+        color: var(--good);
       }
 
       .wheel-copy {
@@ -544,7 +603,8 @@
         .hero,
         .app-grid,
         .task-grid,
-        .wheel-layout {
+        .wheel-layout,
+        .wheel-visuals {
           grid-template-columns: 1fr;
         }
 
@@ -696,14 +756,24 @@
 
       <section class="app-panel wheel-panel hidden" id="prize-wheel-panel">
         <div class="wheel-layout">
-          <div class="wheel-stage">
-            <div class="wheel-pointer" aria-hidden="true"></div>
-            <img
-              alt="Prize wheel"
-              class="wheel-image"
-              id="prize-wheel-image"
-              src="/assets/prize-wheel.png"
-            >
+          <div class="wheel-visuals">
+            <div class="wheel-stage">
+              <div class="wheel-pointer" aria-hidden="true"></div>
+              <img
+                alt="Prize wheel"
+                class="wheel-image"
+                id="prize-wheel-image"
+                src="/assets/prize-wheel.png"
+              >
+            </div>
+            <aside class="criteria-card" aria-label="Prize wheel color rewards">
+              <img
+                alt=""
+                class="criteria-image"
+                src="/assets/wheel-criteria.png"
+              >
+              <div class="criteria-list" id="criteria-list"></div>
+            </aside>
           </div>
           <div class="wheel-copy">
             <div>
@@ -845,6 +915,7 @@
         authMode: "login",
         user: null,
         tasks: [],
+        completedTaskIds: [],
         settings: {
           stepsPerPoint: 1000,
           dailyStepCap: 20000,
@@ -896,6 +967,7 @@
         wheelCostNote: document.getElementById("wheel-cost-note"),
         wheelBalanceNote: document.getElementById("wheel-balance-note"),
         wheelResult: document.getElementById("wheel-result"),
+        criteriaList: document.getElementById("criteria-list"),
         spinHistory: document.getElementById("spin-history"),
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
@@ -1216,13 +1288,33 @@
       }
 
       function currentDailyCompletedIds() {
+        if (appState.user && !appState.user.localMode) {
+          return appState.completedTaskIds;
+        }
+
         const today = todayIso();
         const ids = taskState.completionsByDate[today];
         return Array.isArray(ids) ? ids : [];
       }
 
       function setCurrentDailyCompletedIds(ids) {
+        if (appState.user && !appState.user.localMode) {
+          appState.completedTaskIds = ids;
+          return;
+        }
+
         taskState.completionsByDate[todayIso()] = ids;
+      }
+
+      function rememberCompletedTask(taskId) {
+        const completedIds = currentDailyCompletedIds();
+        if (completedIds.includes(taskId)) {
+          return completedIds;
+        }
+
+        const nextCompletedIds = [...completedIds, taskId];
+        setCurrentDailyCompletedIds(nextCompletedIds);
+        return nextCompletedIds;
       }
 
       function buildTaskCard(task) {
@@ -1273,22 +1365,7 @@
         for (const task of appState.tasks) {
           const taskCard = buildTaskCard(task);
           const button = taskCard.querySelector(".complete-button");
-          button.addEventListener("click", () => {
-            const completedIds = currentDailyCompletedIds();
-            if (completedIds.includes(task.id)) {
-              return;
-            }
-
-            completedIds.push(task.id);
-            setCurrentDailyCompletedIds(completedIds);
-            taskState.lifetimeCoins += task.coin_reward;
-            if (currentLocalAccount()) {
-              updateLocalUserPoints(task.coin_reward);
-            }
-            saveTaskState(taskState);
-            updateTaskCard(taskCard);
-            updateLocalCoinDisplay();
-          });
+          button.addEventListener("click", () => completeDailyTask(task, taskCard));
 
           elements.taskGrid.append(taskCard);
           updateTaskCard(taskCard);
@@ -1343,6 +1420,10 @@
         updateLocalCoinDisplay();
         toggleCustomWorkoutForm(false);
         setMessage(`${title} was added to your daily routines.`);
+      }
+
+      function updateTaskCards() {
+        Array.from(document.querySelectorAll(".task-card")).forEach(updateTaskCard);
       }
 
       function setMessage(text, isError = false) {
@@ -1454,6 +1535,48 @@
         status.textContent = isComplete ? `Done for ${todayIso()}` : "Ready";
       }
 
+      async function completeDailyTask(task, taskCard) {
+        if (currentDailyCompletedIds().includes(task.id)) {
+          return;
+        }
+
+        const button = taskCard.querySelector(".complete-button");
+        button.disabled = true;
+        button.textContent = "Saving...";
+
+        if (!appState.user || appState.user.localMode || task.is_custom) {
+          rememberCompletedTask(task.id);
+          taskState.lifetimeCoins += task.coin_reward;
+          if (appState.user?.localMode) {
+            updateLocalUserPoints(task.coin_reward);
+          }
+          saveTaskState(taskState);
+          updateTaskCard(taskCard);
+          updateLocalCoinDisplay();
+          setMessage(appState.user?.localMode
+            ? `Completed ${task.title}. +${formatNumber(task.coin_reward)} coins.`
+            : `Completed ${task.title}. Log in to save task coins to your account.`
+          );
+          return;
+        }
+
+        try {
+          const result = await apiFetch(
+            `/api/tasks/daily/${encodeURIComponent(task.id)}/complete`,
+            { method: "POST" }
+          );
+          rememberCompletedTask(task.id);
+          updateCoinDisplay(result.user);
+          updateTaskCard(taskCard);
+          setMessage(
+            `Completed ${task.title}. +${formatNumber(task.coin_reward)} coins.`
+          );
+        } catch (error) {
+          updateTaskCard(taskCard);
+          setMessage(error.message, true);
+        }
+      }
+
       function updateSummary(summary) {
         appState.user = summary.user;
         appState.settings = summary.rewardSettings || appState.settings;
@@ -1499,7 +1622,35 @@
         appState.prizeWheel.spinCost = wheel.spinCost || appState.prizeWheel.spinCost;
         appState.prizeWheel.slices = Array.isArray(wheel.slices) ? wheel.slices : [];
         updateCoinDisplay(wheel.user);
+        renderCriteriaList();
         updatePrizeWheelControls();
+      }
+
+      function renderCriteriaList() {
+        elements.criteriaList.innerHTML = "";
+
+        const slices = [...appState.prizeWheel.slices].sort(
+          (a, b) => a.displayOrder - b.displayOrder
+        );
+
+        for (const slice of slices) {
+          const row = document.createElement("div");
+          const rewardValue = Number(slice.rewardValue) || 0;
+          const pointsClass = rewardValue < 0 ? "is-loss" : "is-gain";
+          const sign = rewardValue > 0 ? "+" : "";
+          row.className = "criteria-row";
+          row.innerHTML = `
+            <span
+              class="criteria-swatch"
+              style="background-color: ${slice.color}"
+              aria-hidden="true"
+            ></span>
+            <span class="criteria-points ${pointsClass}">
+              ${sign}${formatNumber(rewardValue)} coins
+            </span>
+          `;
+          elements.criteriaList.append(row);
+        }
       }
 
       function updateSpinHistory(history) {
@@ -1636,7 +1787,9 @@
         elements.summaryPanel.classList.add("hidden");
         elements.historyPanel.classList.add("hidden");
         elements.prizeWheelPanel.classList.add("hidden");
+        appState.completedTaskIds = [];
         updateCoinDisplay(null);
+        updateTaskCards();
       }
 
       async function refreshFitness() {
@@ -1644,21 +1797,27 @@
           updateSummary(localSummaryForUser(appState.user));
           updateHistory(localHistoryForUser(appState.user));
           elements.spinHistory.innerHTML = "";
+          updateTaskCards();
           showAuthed();
           return;
         }
 
-        const [summary, history, wheel, wheelHistory] = await Promise.all([
+        const [summary, history, wheel, wheelHistory, taskCompletions] = await Promise.all([
           apiFetch("/api/fitness/summary"),
           apiFetch("/api/fitness/history"),
           apiFetch("/api/arcade/prize-wheel"),
-          apiFetch("/api/arcade/prize-wheel/history")
+          apiFetch("/api/arcade/prize-wheel/history"),
+          apiFetch("/api/tasks/daily/completions")
         ]);
 
+        appState.completedTaskIds = Array.isArray(taskCompletions.completedTaskIds)
+          ? taskCompletions.completedTaskIds
+          : [];
         updateSummary(summary);
         updateHistory(history);
         updatePrizeWheel(wheel);
         updateSpinHistory(wheelHistory);
+        updateTaskCards();
         showAuthed();
       }
 
@@ -1854,7 +2013,7 @@
       elements.resetProgress.addEventListener("click", () => {
         delete taskState.completionsByDate[todayIso()];
         saveTaskState(taskState);
-        Array.from(document.querySelectorAll(".task-card")).forEach(updateTaskCard);
+        updateTaskCards();
         updateLocalCoinDisplay();
       });
 

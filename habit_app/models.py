@@ -36,6 +36,9 @@ class User(TimestampMixin, db.Model):
     fitness_logs = db.relationship(
         "FitnessLog", backref="user", lazy=True, cascade="all, delete-orphan"
     )
+    daily_task_completions = db.relationship(
+        "DailyTaskCompletion", backref="user", lazy=True, cascade="all, delete-orphan"
+    )
     prize_wheel_spins = db.relationship(
         "PrizeWheelSpin", backref="user", lazy=True, cascade="all, delete-orphan"
     )
@@ -95,6 +98,25 @@ class FitnessLog(TimestampMixin, db.Model):
 
     __table_args__ = (
         db.UniqueConstraint("user_id", "logged_on", name="uq_user_fitness_logged_on"),
+    )
+
+
+class DailyTaskCompletion(TimestampMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(
+        db.Integer, db.ForeignKey("user.id"), nullable=False, index=True
+    )
+    task_id = db.Column(db.String(80), nullable=False, index=True)
+    completed_on = db.Column(db.Date, nullable=False, index=True)
+    points_awarded = db.Column(db.Integer, nullable=False, default=0)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "user_id",
+            "task_id",
+            "completed_on",
+            name="uq_user_daily_task_completed_on",
+        ),
     )
 
 

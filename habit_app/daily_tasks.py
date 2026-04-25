@@ -45,3 +45,7 @@ TASK_LIBRARY = [
 
 def all_daily_tasks():
     return [task.to_dict() for task in TASK_LIBRARY]
+
+
+def find_daily_task(task_id):
+    return next((task for task in TASK_LIBRARY if task.id == task_id), None)

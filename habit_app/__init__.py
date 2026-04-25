@@ -80,4 +80,11 @@ def create_app():
             "pixilart-drawing.png",
         )
 
+    @app.get("/assets/wheel-criteria.png")
+    def wheel_criteria_asset():
+        return send_from_directory(
+            os.path.abspath(os.path.join(app.root_path, "..")),
+            "wheel_criteria.png",
+        )
+
     return app
