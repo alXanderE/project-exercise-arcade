@@ -413,41 +413,6 @@
         image-rendering: pixelated;
       }
 
-      .criteria-list {
-        display: grid;
-        gap: 4px;
-        align-content: center;
-      }
-
-      .criteria-row {
-        display: grid;
-        grid-template-columns: 12px 1fr;
-        gap: 7px;
-        align-items: center;
-        min-height: 18px;
-        font-size: 0.84rem;
-        color: var(--text);
-      }
-
-      .criteria-swatch {
-        width: 12px;
-        height: 12px;
-        border: 1px solid rgba(31, 41, 51, 0.25);
-      }
-
-      .criteria-points {
-        font-weight: 700;
-        white-space: nowrap;
-      }
-
-      .criteria-points.is-loss {
-        color: var(--danger);
-      }
-
-      .criteria-points.is-gain {
-        color: var(--good);
-      }
-
       .wheel-copy {
         display: grid;
         gap: 14px;
@@ -987,7 +952,6 @@
         wheelCostNote: document.getElementById("wheel-cost-note"),
         wheelBalanceNote: document.getElementById("wheel-balance-note"),
         wheelResult: document.getElementById("wheel-result"),
-        criteriaList: document.getElementById("criteria-list"),
         spinHistory: document.getElementById("spin-history"),
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
@@ -1501,6 +1465,10 @@
       }
 
       function renderTaskCards() {
+        if (!elements.taskGrid) {
+          return;
+        }
+
         elements.taskGrid.innerHTML = "";
 
         for (const task of appState.tasks) {
@@ -1759,7 +1727,6 @@
           : canSpin
             ? `${formatNumber(balance)} coins available`
             : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`;
-        renderCriteriaList();
       }
 
       function updatePrizeWheel(wheel) {
@@ -1767,7 +1734,6 @@
         appState.prizeWheel.slices = Array.isArray(wheel.slices) ? wheel.slices : [];
         updateCoinDisplay(wheel.user);
         renderPrizeWheelFace();
-        renderCriteriaList();
         updatePrizeWheelControls();
       }
 
@@ -1776,34 +1742,16 @@
       }
 
       function renderCriteriaList() {
-        elements.criteriaList.innerHTML = "";
-
-        const slices = [...appState.prizeWheel.slices].sort(
-          (a, b) => a.displayOrder - b.displayOrder
-        );
-
-        for (const slice of slices) {
-          const row = document.createElement("div");
-          const rewardValue = calculateSpinReward(appState.prizeWheel.spinCost || 20, slice);
-          const pointsClass = rewardValue < 0 ? "is-loss" : "is-gain";
-          row.className = "criteria-row";
-          row.innerHTML = `
-            <span
-              class="criteria-swatch"
-              style="background-color: ${slice.color}"
-              aria-hidden="true"
-            ></span>
-            <span class="criteria-points ${pointsClass}">
-              ${describeSpinReward(slice, appState.prizeWheel.spinCost || 20)}
-            </span>
-          `;
-          elements.criteriaList.append(row);
-        }
+        return;
       }
 
       function updateSpinHistory(history) {
         const spins = Array.isArray(history.spins) ? history.spins : [];
         appState.prizeWheel.spins = spins;
+        if (!elements.spinHistory) {
+          return;
+        }
+
         elements.spinHistory.innerHTML = "";
 
         if (!spins.length) {
@@ -1889,6 +1837,10 @@
       }
 
       function updateHistory(history) {
+        if (!elements.historyList) {
+          return;
+        }
+
         elements.historyList.innerHTML = "";
 
         if (!history.logs.length) {
@@ -1931,8 +1883,12 @@
         elements.goalLabel.textContent =
           `${formatNumber(appState.settings.dailyGoalSteps)} step daily goal`;
         elements.goalProgress.style.width = "0%";
-        elements.historyList.innerHTML = "";
-        elements.spinHistory.innerHTML = "";
+        if (elements.historyList) {
+          elements.historyList.innerHTML = "";
+        }
+        if (elements.spinHistory) {
+          elements.spinHistory.innerHTML = "";
+        }
         elements.wheelResult.textContent = "Ready to spin";
         showAuthed();
       }
