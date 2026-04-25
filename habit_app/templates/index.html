@@ -854,6 +854,8 @@
 
     <script>
       const storageKey = "exercise-arcade-front-page-state";
+      const browserModeUserId = "local-browser-mode-user";
+      const browserModeUserEmail = "browser-mode@local";
       const fallbackDailyTasks = [
         {
           id: "warmup-walk",
@@ -1088,15 +1090,16 @@
       function cleanLocalAccounts() {
         return taskState.localAccounts
           .filter((account) => account && typeof account === "object")
-          .map((account) => ({
-            id: String(account.id || ""),
-            email: String(account.email || "").trim().toLowerCase(),
-            displayName: String(account.displayName || "").trim(),
-            password: String(account.password || ""),
-            points: Math.max(0, Number.parseInt(account.points, 10) || 0),
-            level: Math.max(1, Number.parseInt(account.level, 10) || 1),
-            localMode: Boolean(account.localMode)
-          }))
+                .map((account) => ({
+                  id: String(account.id || ""),
+                  email: String(account.email || "").trim().toLowerCase(),
+                  displayName: String(account.displayName || "").trim(),
+                  password: String(account.password || ""),
+                  points: Math.max(0, Number.parseInt(account.points, 10) || 0),
+                  level: Math.max(1, Number.parseInt(account.level, 10) || 1),
+                  localMode: Boolean(account.localMode),
+                  isGuest: Boolean(account.isGuest)
+                }))
           .filter((account) => account.id && account.email && account.displayName);
       }
 
@@ -1166,7 +1169,8 @@
           displayName: String(account.displayName || "").trim(),
           points: Math.max(0, Number.parseInt(account.points, 10) || 0),
           level: calculateLevel(account.points),
-          localMode: Boolean(account.localMode)
+          localMode: Boolean(account.localMode),
+          isGuest: Boolean(account.isGuest)
         };
 
         if (index >= 0) {
@@ -1185,6 +1189,26 @@
         taskState.localSessionUserId = null;
         persistLocalState();
         appState.user = null;
+      }
+
+      function ensureBrowserModeAccount() {
+        taskState.localAccounts = cleanLocalAccounts();
+        const existing = taskState.localAccounts.find(
+          (account) => account.id === browserModeUserId
+        );
+
+        const browserUser = {
+          id: browserModeUserId,
+          email: browserModeUserEmail,
+          displayName: "Browser Mode",
+          password: existing?.password || "",
+          points: existing?.points || 0,
+          level: existing?.level || 1,
+          localMode: true,
+          isGuest: true
+        };
+
+        return setCurrentLocalAccount(browserUser);
       }
 
       function localAccountFromCredentials(identifier, password) {
@@ -1866,7 +1890,7 @@
       }
 
       function showAuthed() {
-        elements.authPanel.classList.add("hidden");
+        elements.authPanel.classList.toggle("hidden", !appState.user?.isGuest);
         elements.fitnessPanel.classList.remove("hidden");
         elements.summaryPanel.classList.remove("hidden");
         elements.historyPanel.classList.remove("hidden");
@@ -1894,14 +1918,16 @@
       }
 
       function showLoggedOut() {
-        elements.authPanel.classList.remove("hidden");
-        elements.fitnessPanel.classList.add("hidden");
-        elements.summaryPanel.classList.add("hidden");
-        elements.historyPanel.classList.add("hidden");
-        elements.prizeWheelPanel.classList.add("hidden");
+        const browserUser = ensureBrowserModeAccount();
+        appState.prizeWheel.slices = fallbackPrizeWheelSlices;
         appState.completedTaskIds = [];
-        updateCoinDisplay(null);
+        updateSummary(localSummaryForUser(browserUser));
+        updateHistory(localHistoryForUser(browserUser));
+        updateSpinHistory({
+          spins: localPrizeWheelSpinsForUser(browserUser.id)
+        });
         updateTaskCards();
+        showAuthed();
       }
 
       async function refreshFitness() {
