@@ -1092,10 +1092,22 @@
           },
           ...options
         });
-        const data = await response.json().catch(() => ({}));
+        const responseText = await response.text();
+        let data = {};
+
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          data = {};
+        }
 
         if (!response.ok) {
-          throw new Error(data.message || "Request failed.");
+          const detail =
+            data.detail ||
+            data.message ||
+            responseText.trim() ||
+            `${response.status} ${response.statusText}`;
+          throw new Error(detail || "Request failed.");
         }
 
         return data;

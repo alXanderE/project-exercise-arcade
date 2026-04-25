@@ -30,6 +30,10 @@ To add shared daily task cards, edit `habit_app/daily_tasks.py` and add another
 `DailyTask(...)` entry to `TASK_LIBRARY`. Players can also add personal custom
 workouts from the front end; those are saved in their browser.
 
+On Vercel, if `DATABASE_URL` is not set, the app falls back to
+`sqlite:////tmp/exercise_arcade.db` so the function can boot. For persistent user
+accounts and points in production, set `DATABASE_URL` to a real hosted database.
+
 ## API routes
 
 - `GET /`

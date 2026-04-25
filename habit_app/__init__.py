@@ -4,12 +4,24 @@ from flask import Flask, render_template, send_from_directory
 
 from .extensions import db
 from .routes import api
+from .schema import ensure_sqlite_schema
 
 try:
     from dotenv import load_dotenv
 except ModuleNotFoundError:
     def load_dotenv():
         return False
+
+
+def default_database_url():
+    configured = os.getenv("DATABASE_URL")
+    if configured:
+        return configured
+
+    if os.getenv("VERCEL"):
+        return "sqlite:////tmp/exercise_arcade.db"
+
+    return "sqlite:///exercise_arcade.db"
 
 
 def create_app():
@@ -21,10 +33,7 @@ def create_app():
     app.config["HOST"] = os.getenv("HOST", "0.0.0.0")
     app.config["PORT"] = int(os.getenv("PORT", "5000"))
     app.config["DEBUG"] = os.getenv("FLASK_DEBUG", "true").lower() == "true"
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv(
-        "DATABASE_URL",
-        "sqlite:///exercise_arcade.db",
-    )
+    app.config["SQLALCHEMY_DATABASE_URI"] = default_database_url()
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SESSION_COOKIE_NAME"] = os.getenv(
         "SESSION_COOKIE_NAME",
@@ -51,6 +60,7 @@ def create_app():
         from . import models  # noqa: F401
 
         db.create_all()
+        ensure_sqlite_schema()
 
     app.register_blueprint(api, url_prefix="/api")
 
