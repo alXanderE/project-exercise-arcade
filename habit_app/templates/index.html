@@ -17,6 +17,7 @@
         --gold-soft: #fcd34d;
         --line: #e7dccb;
         --danger: #b45309;
+        --good: #15803d;
       }
 
       * {
@@ -33,28 +34,50 @@
         color: var(--text);
       }
 
+      button,
+      input {
+        font: inherit;
+      }
+
       .page {
         width: min(1100px, calc(100% - 32px));
         margin: 0 auto;
         padding: 32px 0 40px;
       }
 
-      .hero {
+      .hero,
+      .app-grid {
         display: grid;
         grid-template-columns: 1.3fr 0.7fr;
         gap: 18px;
         align-items: stretch;
+      }
+
+      .hero {
         margin-bottom: 24px;
+      }
+
+      .app-grid {
+        margin-bottom: 18px;
       }
 
       .hero-panel,
       .coin-panel,
       .task-card,
-      .tip-panel {
+      .tip-panel,
+      .app-panel,
+      .metric-card {
         background: rgba(255, 250, 242, 0.92);
         border: 1px solid var(--line);
         border-radius: 8px;
         box-shadow: 0 12px 30px rgba(31, 41, 51, 0.07);
+      }
+
+      .hero-panel,
+      .coin-panel,
+      .app-panel,
+      .task-card {
+        padding: 24px;
       }
 
       .hero-panel {
@@ -83,15 +106,25 @@
         margin-bottom: 14px;
       }
 
-      .hero-copy {
+      h2 {
+        margin-bottom: 14px;
+      }
+
+      .hero-copy,
+      .coin-note,
+      .task-description,
+      .helper-text,
+      .history-empty {
         color: var(--muted);
-        max-width: 42rem;
-        font-size: 1.05rem;
         line-height: 1.55;
       }
 
+      .hero-copy {
+        max-width: 42rem;
+        font-size: 1.05rem;
+      }
+
       .coin-panel {
-        padding: 24px;
         display: flex;
         flex-direction: column;
         justify-content: space-between;
@@ -129,9 +162,183 @@
         font-size: 1.4rem;
       }
 
-      .coin-note {
+      .auth-tabs,
+      .metric-grid,
+      .form-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .auth-tabs {
+        grid-template-columns: 1fr 1fr;
+        margin-bottom: 14px;
+      }
+
+      .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        margin-bottom: 18px;
+      }
+
+      .metric-card {
+        padding: 16px;
+        min-height: 84px;
+        display: grid;
+        align-content: space-between;
+      }
+
+      .metric-card span,
+      label span,
+      .preview-row span,
+      .task-status,
+      .history-date {
         color: var(--muted);
-        line-height: 1.5;
+        font-size: 0.9rem;
+      }
+
+      .metric-card strong {
+        font-size: 1.8rem;
+        line-height: 1;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+      }
+
+      input {
+        width: 100%;
+        min-height: 46px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-strong);
+        color: var(--text);
+        padding: 0 12px;
+      }
+
+      input:focus {
+        border-color: var(--accent);
+        outline: 3px solid rgba(15, 118, 110, 0.18);
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+
+      .complete-button,
+      .reset-button,
+      .primary-button,
+      .secondary-button,
+      .tab-button {
+        min-height: 44px;
+        padding: 0 16px;
+        transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+      }
+
+      .complete-button,
+      .primary-button {
+        background: var(--accent);
+        color: #fff;
+        font-weight: 700;
+      }
+
+      .complete-button:hover,
+      .reset-button:hover,
+      .primary-button:hover,
+      .secondary-button:hover,
+      .tab-button:hover {
+        transform: translateY(-1px);
+      }
+
+      .complete-button:disabled {
+        background: #93a8a6;
+        cursor: default;
+        transform: none;
+      }
+
+      .tab-button,
+      .secondary-button {
+        background: #f1e4cd;
+        color: #5b4a2e;
+        font-weight: 700;
+      }
+
+      .tab-button.is-active {
+        background: var(--accent);
+        color: #fff;
+      }
+
+      .section-head,
+      .preview-row,
+      .history-item,
+      .task-footer,
+      .tip-panel {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .section-head {
+        margin-bottom: 14px;
+      }
+
+      .section-head h2 {
+        margin-bottom: 0;
+      }
+
+      .preview-row {
+        min-height: 46px;
+        padding: 0 12px;
+        border: 1px dashed var(--line);
+        border-radius: 8px;
+        background: var(--panel-strong);
+      }
+
+      .preview-row strong,
+      .history-points {
+        color: var(--good);
+      }
+
+      .progress-track {
+        height: 12px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: #eadfce;
+        margin: 4px 0 10px;
+      }
+
+      .progress-fill {
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--gold));
+        transition: width 180ms ease;
+      }
+
+      .history-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .history-item {
+        padding: 10px 0;
+        border-top: 1px solid var(--line);
+      }
+
+      .history-item:first-child {
+        border-top: 0;
+      }
+
+      .history-main {
+        display: grid;
+        gap: 3px;
+      }
+
+      .history-points {
+        font-weight: 700;
+        white-space: nowrap;
       }
 
       .task-grid {
@@ -142,7 +349,6 @@
       }
 
       .task-card {
-        padding: 22px;
         display: flex;
         flex-direction: column;
         min-height: 260px;
@@ -181,88 +387,51 @@
       }
 
       .task-description {
-        color: var(--muted);
-        line-height: 1.55;
         flex: 1;
       }
 
       .task-footer {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 12px;
         margin-top: 18px;
-      }
-
-      .task-status {
-        color: var(--muted);
-        font-size: 0.95rem;
-      }
-
-      button {
-        border: 0;
-        border-radius: 8px;
-        cursor: pointer;
-        font: inherit;
-      }
-
-      .complete-button,
-      .reset-button {
-        min-height: 44px;
-        padding: 0 16px;
-        transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
-      }
-
-      .complete-button {
-        background: var(--accent);
-        color: #fff;
-        font-weight: 700;
-      }
-
-      .complete-button:hover,
-      .reset-button:hover {
-        transform: translateY(-1px);
-      }
-
-      .complete-button:disabled {
-        background: #93a8a6;
-        cursor: default;
-        transform: none;
       }
 
       .tip-panel {
         padding: 20px 22px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        gap: 18px;
+        background: rgba(255, 250, 242, 0.92);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: 0 12px 30px rgba(31, 41, 51, 0.07);
       }
 
       .tip-panel p {
-        color: var(--muted);
         margin-bottom: 0;
-        line-height: 1.5;
       }
 
-      .reset-button {
-        background: #f1e4cd;
-        color: #5b4a2e;
+      .message {
+        min-height: 24px;
+        margin: 10px 0 0;
+        color: var(--muted);
         font-weight: 700;
-        white-space: nowrap;
+      }
+
+      .hidden {
+        display: none;
       }
 
       @media (max-width: 900px) {
         .hero,
+        .app-grid,
         .task-grid {
           grid-template-columns: 1fr;
         }
 
-        .tip-panel {
-          flex-direction: column;
+        .tip-panel,
+        .section-head {
           align-items: flex-start;
+          flex-direction: column;
         }
 
-        .reset-button {
+        .reset-button,
+        .secondary-button {
           width: 100%;
         }
       }
@@ -275,34 +444,138 @@
           <span class="eyebrow">Exercise Arcade</span>
           <h1>Finish today&rsquo;s training, cash in the coins.</h1>
           <p class="hero-copy">
-            Each exercise task pays out coins when you complete it. Tap through the
-            list, watch the total climb, and use the page as a lightweight prototype
-            for the habit game loop.
+            Log your steps, complete training tasks, and build up the same point
+            balance you can spend in the arcade.
           </p>
         </div>
         <aside class="coin-panel">
           <div>
-            <div class="coin-label">Coin Counter</div>
+            <div class="coin-label">Account Points</div>
             <div class="coin-total">
               <span class="coin-icon">$</span>
               <span id="coin-total">0</span>
             </div>
           </div>
           <p class="coin-note" id="coin-note">
-            Complete a task to earn your first coins.
+            Log in to sync steps and arcade points.
           </p>
         </aside>
+      </section>
+
+      <section class="app-grid">
+        <section class="app-panel" id="auth-panel">
+          <span class="eyebrow">Account</span>
+          <h2>Save your progress</h2>
+          <div class="auth-tabs" aria-label="Account mode">
+            <button class="tab-button is-active" id="login-tab" type="button">
+              Log in
+            </button>
+            <button class="tab-button" id="signup-tab" type="button">
+              Sign up
+            </button>
+          </div>
+          <form class="form-grid" id="auth-form">
+            <label class="hidden" id="display-name-field">
+              <span>Display name</span>
+              <input id="display-name" name="displayName" type="text">
+            </label>
+            <label>
+              <span>Email</span>
+              <input id="email" name="email" required type="email">
+            </label>
+            <label>
+              <span>Password</span>
+              <input
+                id="password"
+                minlength="6"
+                name="password"
+                required
+                type="password"
+              >
+            </label>
+            <button class="primary-button" id="auth-submit" type="submit">
+              Log in
+            </button>
+          </form>
+        </section>
+
+        <section class="app-panel hidden" id="fitness-panel">
+          <div class="section-head">
+            <div>
+              <span class="eyebrow">Fitness tracker</span>
+              <h2>Manual step log</h2>
+            </div>
+            <button class="secondary-button" id="logout-button" type="button">
+              Log out
+            </button>
+          </div>
+          <form class="form-grid" id="steps-form">
+            <label>
+              <span>Date</span>
+              <input id="logged-on" name="loggedOn" required type="date">
+            </label>
+            <label>
+              <span>Steps</span>
+              <input
+                id="steps"
+                inputmode="numeric"
+                min="0"
+                name="steps"
+                pattern="[0-9]*"
+                required
+                type="number"
+              >
+            </label>
+            <label>
+              <span>Notes</span>
+              <input id="notes" maxlength="255" name="notes" type="text">
+            </label>
+            <div class="preview-row">
+              <span>Estimated reward</span>
+              <strong id="points-preview">0 points</strong>
+            </div>
+            <button class="primary-button" type="submit">Save Steps</button>
+          </form>
+        </section>
+      </section>
+
+      <section class="app-panel hidden" id="summary-panel">
+        <div class="metric-grid">
+          <article class="metric-card">
+            <span>Level</span>
+            <strong id="level-count">1</strong>
+          </article>
+          <article class="metric-card">
+            <span>Today&rsquo;s steps</span>
+            <strong id="today-steps">0</strong>
+          </article>
+          <article class="metric-card">
+            <span>Today earned</span>
+            <strong id="today-earned">0</strong>
+          </article>
+          <article class="metric-card">
+            <span>Goal days</span>
+            <strong id="goal-days">0</strong>
+          </article>
+        </div>
+        <div class="section-head">
+          <h2 id="goal-label">Daily goal</h2>
+          <span id="total-steps" class="helper-text">0 total steps</span>
+        </div>
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="goal-progress"></div>
+        </div>
       </section>
 
       <section class="task-grid" id="task-grid">
         <article class="task-card" data-task-id="warmup-walk" data-reward="5">
           <div class="task-top">
             <span class="task-tag">Warmup</span>
-            <span class="reward-badge">+5 coins</span>
+            <span class="reward-badge">+5 local coins</span>
           </div>
           <h3>10 Minute Walk</h3>
           <p class="task-description">
-            Loosen up, get outside, and pick up a little momentum before the heavier work.
+            Loosen up, get outside, and pick up momentum before the heavier work.
           </p>
           <div class="task-footer">
             <span class="task-status">Ready</span>
@@ -313,11 +586,11 @@
         <article class="task-card" data-task-id="strength-circuit" data-reward="12">
           <div class="task-top">
             <span class="task-tag">Strength</span>
-            <span class="reward-badge">+12 coins</span>
+            <span class="reward-badge">+12 local coins</span>
           </div>
           <h3>Bodyweight Circuit</h3>
           <p class="task-description">
-            Finish 3 rounds of squats, push-ups, and lunges with solid form and steady pacing.
+            Finish 3 rounds of squats, push-ups, and lunges with steady pacing.
           </p>
           <div class="task-footer">
             <span class="task-status">Ready</span>
@@ -328,11 +601,11 @@
         <article class="task-card" data-task-id="mobility-flow" data-reward="8">
           <div class="task-top">
             <span class="task-tag">Recovery</span>
-            <span class="reward-badge">+8 coins</span>
+            <span class="reward-badge">+8 local coins</span>
           </div>
           <h3>Mobility Flow</h3>
           <p class="task-description">
-            Spend 12 minutes opening hips, shoulders, and hamstrings so tomorrow feels better too.
+            Spend 12 minutes opening hips, shoulders, and hamstrings.
           </p>
           <div class="task-footer">
             <span class="task-status">Ready</span>
@@ -341,67 +614,320 @@
         </article>
       </section>
 
+      <section class="app-panel hidden" id="history-panel">
+        <div class="section-head">
+          <h2>Recent step logs</h2>
+          <a href="/api/arcade/prize-wheel">Prize wheel API</a>
+        </div>
+        <div class="history-list" id="history-list"></div>
+      </section>
+
       <section class="tip-panel">
         <p>
-          Progress is saved in your browser for this page, so the coin total and completed
-          tasks stick around when you refresh.
+          Step logs sync to your account and award spendable arcade points.
+          Training task cards are still a browser-only prototype.
         </p>
-        <button class="reset-button" type="button" id="reset-progress">Reset Progress</button>
+        <button class="reset-button" type="button" id="reset-progress">
+          Reset Local Tasks
+        </button>
       </section>
+
+      <p class="message" id="message" role="status"></p>
     </main>
 
     <script>
       const storageKey = "exercise-arcade-front-page-state";
-      const defaultState = {
-        coins: 0,
+      const defaultTaskState = {
         completedTaskIds: []
       };
+      const appState = {
+        authMode: "login",
+        user: null,
+        settings: {
+          stepsPerPoint: 1000,
+          dailyStepCap: 20000,
+          dailyGoalSteps: 10000,
+          dailyGoalBonus: 5
+        }
+      };
 
-      function loadState() {
+      const elements = {
+        authPanel: document.getElementById("auth-panel"),
+        fitnessPanel: document.getElementById("fitness-panel"),
+        summaryPanel: document.getElementById("summary-panel"),
+        historyPanel: document.getElementById("history-panel"),
+        loginTab: document.getElementById("login-tab"),
+        signupTab: document.getElementById("signup-tab"),
+        authForm: document.getElementById("auth-form"),
+        authSubmit: document.getElementById("auth-submit"),
+        displayNameField: document.getElementById("display-name-field"),
+        displayName: document.getElementById("display-name"),
+        email: document.getElementById("email"),
+        password: document.getElementById("password"),
+        logoutButton: document.getElementById("logout-button"),
+        stepsForm: document.getElementById("steps-form"),
+        loggedOn: document.getElementById("logged-on"),
+        steps: document.getElementById("steps"),
+        notes: document.getElementById("notes"),
+        pointsPreview: document.getElementById("points-preview"),
+        coinTotal: document.getElementById("coin-total"),
+        coinNote: document.getElementById("coin-note"),
+        levelCount: document.getElementById("level-count"),
+        todaySteps: document.getElementById("today-steps"),
+        todayEarned: document.getElementById("today-earned"),
+        goalDays: document.getElementById("goal-days"),
+        goalLabel: document.getElementById("goal-label"),
+        totalSteps: document.getElementById("total-steps"),
+        goalProgress: document.getElementById("goal-progress"),
+        historyList: document.getElementById("history-list"),
+        message: document.getElementById("message"),
+        resetProgress: document.getElementById("reset-progress")
+      };
+
+      function loadTaskState() {
         try {
           const parsed = JSON.parse(window.localStorage.getItem(storageKey));
           if (!parsed || typeof parsed !== "object") {
-            return { ...defaultState };
+            return { ...defaultTaskState };
           }
 
           return {
-            coins: Number(parsed.coins) || 0,
-            completedTaskIds: Array.isArray(parsed.completedTaskIds) ? parsed.completedTaskIds : []
+            completedTaskIds: Array.isArray(parsed.completedTaskIds)
+              ? parsed.completedTaskIds
+              : []
           };
         } catch {
-          return { ...defaultState };
+          return { ...defaultTaskState };
         }
       }
 
-      function saveState(state) {
+      function saveTaskState(state) {
         window.localStorage.setItem(storageKey, JSON.stringify(state));
       }
 
-      const state = loadState();
-      const coinTotal = document.getElementById("coin-total");
-      const coinNote = document.getElementById("coin-note");
+      const taskState = loadTaskState();
       const taskCards = Array.from(document.querySelectorAll(".task-card"));
 
-      function updateCoinDisplay() {
-        coinTotal.textContent = String(state.coins);
-        if (state.coins === 0) {
-          coinNote.textContent = "Complete a task to earn your first coins.";
-        } else if (state.completedTaskIds.length === taskCards.length) {
-          coinNote.textContent = "All tasks cleared. Your training board is fully completed.";
-        } else {
-          coinNote.textContent = "Nice work. Each completed task adds to your total coin stash.";
+      function todayIso() {
+        const now = new Date();
+        const offset = now.getTimezoneOffset();
+        const local = new Date(now.getTime() - offset * 60000);
+        return local.toISOString().slice(0, 10);
+      }
+
+      function formatNumber(value) {
+        return new Intl.NumberFormat().format(value || 0);
+      }
+
+      function setMessage(text, isError = false) {
+        elements.message.textContent = text;
+        elements.message.style.color = isError ? "#b45309" : "#5c6b73";
+      }
+
+      async function apiFetch(path, options = {}) {
+        const response = await fetch(path, {
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/json",
+            ...(options.headers || {})
+          },
+          ...options
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.message || "Request failed.");
         }
+
+        return data;
+      }
+
+      function setAuthMode(mode) {
+        appState.authMode = mode;
+        const isSignup = mode === "signup";
+
+        elements.loginTab.classList.toggle("is-active", !isSignup);
+        elements.signupTab.classList.toggle("is-active", isSignup);
+        elements.displayNameField.classList.toggle("hidden", !isSignup);
+        elements.displayName.required = isSignup;
+        elements.authSubmit.textContent = isSignup ? "Create Account" : "Log in";
+      }
+
+      function calculatePreview(steps) {
+        const safeSteps = Math.max(0, Number.parseInt(steps || "0", 10) || 0);
+        const cappedSteps = Math.min(safeSteps, appState.settings.dailyStepCap);
+        let points = Math.floor(cappedSteps / appState.settings.stepsPerPoint);
+
+        if (safeSteps >= appState.settings.dailyGoalSteps) {
+          points += appState.settings.dailyGoalBonus;
+        }
+
+        return points;
+      }
+
+      function updatePreview() {
+        const points = calculatePreview(elements.steps.value);
+        elements.pointsPreview.textContent = `${formatNumber(points)} points`;
+      }
+
+      function updateCoinDisplay(user) {
+        if (!user) {
+          elements.coinTotal.textContent = "0";
+          elements.coinNote.textContent = "Log in to sync steps and arcade points.";
+          return;
+        }
+
+        elements.coinTotal.textContent = formatNumber(user.points);
+        elements.coinNote.textContent =
+          `${user.displayName} is level ${user.level}. Points come from steps, ` +
+          "habits, and arcade rewards.";
       }
 
       function updateTaskCard(taskCard) {
         const taskId = taskCard.dataset.taskId;
-        const isComplete = state.completedTaskIds.includes(taskId);
+        const isComplete = taskState.completedTaskIds.includes(taskId);
         const button = taskCard.querySelector(".complete-button");
         const status = taskCard.querySelector(".task-status");
 
         button.disabled = isComplete;
         button.textContent = isComplete ? "Completed" : "Complete";
-        status.textContent = isComplete ? "Reward claimed" : "Ready";
+        status.textContent = isComplete ? "Marked complete" : "Ready";
+      }
+
+      function updateSummary(summary) {
+        appState.user = summary.user;
+        appState.settings = summary.rewardSettings || appState.settings;
+
+        updateCoinDisplay(summary.user);
+        elements.levelCount.textContent = formatNumber(summary.user?.level || 1);
+        elements.todaySteps.textContent = formatNumber(summary.today?.steps);
+        elements.todayEarned.textContent = formatNumber(summary.today?.pointsAwarded);
+        elements.goalDays.textContent = formatNumber(summary.stats?.goalDays);
+        elements.totalSteps.textContent =
+          `${formatNumber(summary.stats?.totalSteps)} total steps`;
+        elements.goalLabel.textContent =
+          `${formatNumber(appState.settings.dailyGoalSteps)} step daily goal`;
+
+        const todaySteps = summary.today?.steps || 0;
+        const goal = appState.settings.dailyGoalSteps || 1;
+        const progress = Math.min(100, (todaySteps / goal) * 100);
+        elements.goalProgress.style.width = `${progress}%`;
+        updatePreview();
+      }
+
+      function updateHistory(history) {
+        elements.historyList.innerHTML = "";
+
+        if (!history.logs.length) {
+          const empty = document.createElement("p");
+          empty.className = "history-empty";
+          empty.textContent = "No step logs yet.";
+          elements.historyList.append(empty);
+          return;
+        }
+
+        for (const log of history.logs.slice(0, 8)) {
+          const item = document.createElement("article");
+          item.className = "history-item";
+          item.innerHTML = `
+            <div class="history-main">
+              <strong>${formatNumber(log.steps)} steps</strong>
+              <span class="history-date">${log.loggedOn}</span>
+            </div>
+            <span class="history-points">+${formatNumber(log.pointsAwarded)}</span>
+          `;
+          elements.historyList.append(item);
+        }
+      }
+
+      function showAuthed() {
+        elements.authPanel.classList.add("hidden");
+        elements.fitnessPanel.classList.remove("hidden");
+        elements.summaryPanel.classList.remove("hidden");
+        elements.historyPanel.classList.remove("hidden");
+      }
+
+      function showLoggedOut() {
+        elements.authPanel.classList.remove("hidden");
+        elements.fitnessPanel.classList.add("hidden");
+        elements.summaryPanel.classList.add("hidden");
+        elements.historyPanel.classList.add("hidden");
+        updateCoinDisplay(null);
+      }
+
+      async function refreshFitness() {
+        const [summary, history] = await Promise.all([
+          apiFetch("/api/fitness/summary"),
+          apiFetch("/api/fitness/history")
+        ]);
+
+        updateSummary(summary);
+        updateHistory(history);
+        showAuthed();
+      }
+
+      async function checkSession() {
+        try {
+          await apiFetch("/api/auth/session");
+          await refreshFitness();
+        } catch {
+          showLoggedOut();
+        }
+      }
+
+      async function handleAuth(event) {
+        event.preventDefault();
+
+        const payload = {
+          email: elements.email.value,
+          password: elements.password.value
+        };
+
+        if (appState.authMode === "signup") {
+          payload.displayName = elements.displayName.value;
+        }
+
+        try {
+          await apiFetch(`/api/auth/${appState.authMode}`, {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          elements.password.value = "";
+          setMessage("");
+          await refreshFitness();
+        } catch (error) {
+          setMessage(error.message, true);
+        }
+      }
+
+      async function handleSteps(event) {
+        event.preventDefault();
+
+        const payload = {
+          loggedOn: elements.loggedOn.value,
+          steps: Number.parseInt(elements.steps.value, 10),
+          notes: elements.notes.value
+        };
+
+        try {
+          const result = await apiFetch("/api/fitness/steps", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          setMessage(`Saved. Point change: ${formatNumber(result.pointsDelta)}.`);
+          await refreshFitness();
+        } catch (error) {
+          setMessage(error.message, true);
+        }
+      }
+
+      async function handleLogout() {
+        try {
+          await apiFetch("/api/auth/logout", { method: "POST" });
+        } finally {
+          showLoggedOut();
+          setMessage("");
+        }
       }
 
       taskCards.forEach((taskCard) => {
@@ -410,29 +936,34 @@
         const button = taskCard.querySelector(".complete-button");
         button.addEventListener("click", () => {
           const taskId = taskCard.dataset.taskId;
-          const reward = Number(taskCard.dataset.reward) || 0;
 
-          if (state.completedTaskIds.includes(taskId)) {
+          if (taskState.completedTaskIds.includes(taskId)) {
             return;
           }
 
-          state.completedTaskIds.push(taskId);
-          state.coins += reward;
-          saveState(state);
+          taskState.completedTaskIds.push(taskId);
+          saveTaskState(taskState);
           updateTaskCard(taskCard);
-          updateCoinDisplay();
         });
       });
 
-      document.getElementById("reset-progress").addEventListener("click", () => {
-        state.coins = 0;
-        state.completedTaskIds = [];
-        saveState(state);
+      elements.resetProgress.addEventListener("click", () => {
+        taskState.completedTaskIds = [];
+        saveTaskState(taskState);
         taskCards.forEach(updateTaskCard);
-        updateCoinDisplay();
       });
 
-      updateCoinDisplay();
+      elements.loggedOn.value = todayIso();
+      elements.loginTab.addEventListener("click", () => setAuthMode("login"));
+      elements.signupTab.addEventListener("click", () => setAuthMode("signup"));
+      elements.authForm.addEventListener("submit", handleAuth);
+      elements.stepsForm.addEventListener("submit", handleSteps);
+      elements.logoutButton.addEventListener("click", handleLogout);
+      elements.steps.addEventListener("input", updatePreview);
+
+      setAuthMode("login");
+      updatePreview();
+      checkSession();
     </script>
   </body>
 </html>
