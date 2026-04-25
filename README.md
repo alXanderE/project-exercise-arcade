@@ -29,6 +29,10 @@ Open `http://127.0.0.1:5000` to see the front end page.
 To add your own daily task cards, edit `habit_app/daily_tasks.py` and add another
 `DailyTask(...)` entry to `TASK_LIBRARY`.
 
+On Vercel, if `DATABASE_URL` is not set, the app falls back to
+`sqlite:////tmp/exercise_arcade.db` so the function can boot. For persistent user
+accounts and points in production, set `DATABASE_URL` to a real hosted database.
+
 ## API routes
 
 - `GET /`
