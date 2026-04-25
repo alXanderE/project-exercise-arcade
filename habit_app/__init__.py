@@ -4,6 +4,7 @@ from flask import Flask, render_template, send_from_directory
 
 from .extensions import db
 from .routes import api
+from .schema import ensure_sqlite_schema
 
 try:
     from dotenv import load_dotenv
@@ -51,6 +52,7 @@ def create_app():
         from . import models  # noqa: F401
 
         db.create_all()
+        ensure_sqlite_schema()
 
     app.register_blueprint(api, url_prefix="/api")
 
