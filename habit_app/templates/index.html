@@ -1382,6 +1382,7 @@
       const storageKey = "exercise-arcade-front-page-state";
       const browserModeUserId = "local-browser-mode-user";
       const browserModeUserEmail = "browser-mode@local";
+      const wheelTickAudioSrc = "/assets/wheel-spin.mp3";
       const fallbackDailyTasks = [
         {
           id: "warmup-walk",
@@ -1454,7 +1455,10 @@
           slices: [],
           spins: [],
           isSpinning: false,
-          rotation: 0
+          rotation: 0,
+          tickAudioPool: [],
+          tickAudioIndex: 0,
+          tickBoundary: 0
         },
         arcadeGame: "wheel",
         blackjack: {
@@ -1696,6 +1700,33 @@
 
       function calculateSpinReward(pointsSpent, slice) {
         return Math.floor(pointsSpent * (positionalSpinMultiplier(slice) / 100));
+      }
+
+      function ensureWheelTickAudioPool() {
+        if (appState.prizeWheel.tickAudioPool.length) {
+          return appState.prizeWheel.tickAudioPool;
+        }
+
+        appState.prizeWheel.tickAudioPool = Array.from({ length: 4 }, () => {
+          const audio = new Audio(wheelTickAudioSrc);
+          audio.preload = "auto";
+          return audio;
+        });
+        return appState.prizeWheel.tickAudioPool;
+      }
+
+      function playWheelTickSound() {
+        const pool = ensureWheelTickAudioPool();
+        const audio = pool[appState.prizeWheel.tickAudioIndex % pool.length];
+        appState.prizeWheel.tickAudioIndex += 1;
+
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+          void audio.play();
+        } catch {
+          return;
+        }
       }
 
       function describeSpinReward(slice, pointsSpent) {
@@ -2983,6 +3014,47 @@
         return 360 - sliceCenter;
       }
 
+      function animateWheelSpinTo(targetRotation, durationMs, onComplete) {
+        const startRotation = appState.prizeWheel.rotation;
+        const sliceCount = Math.max(appState.prizeWheel.slices.length, 1);
+        const sliceAngle = 360 / sliceCount;
+        const startBoundary = Math.floor(startRotation / sliceAngle);
+        const startTime = performance.now();
+
+        appState.prizeWheel.tickBoundary = startBoundary;
+        elements.prizeWheelImage.style.transition = "none";
+
+        function easeOutCubic(value) {
+          return 1 - Math.pow(1 - value, 3);
+        }
+
+        function step(now) {
+          const progress = Math.min(1, (now - startTime) / durationMs);
+          const eased = easeOutCubic(progress);
+          const rotation = startRotation + (targetRotation - startRotation) * eased;
+          appState.prizeWheel.rotation = rotation;
+          elements.prizeWheelImage.style.transform = `rotate(${rotation}deg)`;
+
+          const boundary = Math.floor(rotation / sliceAngle);
+          while (appState.prizeWheel.tickBoundary < boundary) {
+            appState.prizeWheel.tickBoundary += 1;
+            playWheelTickSound();
+          }
+
+          if (progress < 1) {
+            window.requestAnimationFrame(step);
+            return;
+          }
+
+          elements.prizeWheelImage.style.transition = "";
+          appState.prizeWheel.rotation = targetRotation;
+          elements.prizeWheelImage.style.transform = `rotate(${targetRotation}deg)`;
+          onComplete();
+        }
+
+        window.requestAnimationFrame(step);
+      }
+
       async function handlePrizeWheelSpin() {
         if (appState.prizeWheel.isSpinning) {
           return;
@@ -3004,11 +3076,9 @@
           const target = winningSliceRotation(result.winningSlice);
           const current = ((appState.prizeWheel.rotation % 360) + 360) % 360;
           const delta = (target - current + 360) % 360;
-          appState.prizeWheel.rotation += extraTurns + delta;
-          elements.prizeWheelImage.style.transform =
-            `rotate(${appState.prizeWheel.rotation}deg)`;
+          const targetRotation = appState.prizeWheel.rotation + extraTurns + delta;
 
-          window.setTimeout(async () => {
+          animateWheelSpinTo(targetRotation, 1850, async () => {
             elements.wheelResult.textContent = result.winningSlice.label;
             appState.prizeWheel.isSpinning = false;
             elements.prizeWheelImage.classList.remove("is-spinning");
@@ -3019,7 +3089,7 @@
               `Wheel landed on ${result.winningSlice.label}. ` +
               `Balance: ${formatNumber(result.user.points)} coins.`
             );
-          }, 1850);
+          });
         } catch (error) {
           appState.prizeWheel.isSpinning = false;
           elements.prizeWheelImage.classList.remove("is-spinning");
