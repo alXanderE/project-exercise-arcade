@@ -114,6 +114,13 @@ def create_app():
             "wheep_spin.mp3",
         )
 
+    @app.get("/assets/winsound.m4a")
+    def win_sound_audio_asset():
+        return send_from_directory(
+            os.path.abspath(os.path.join(app.root_path, "..")),
+            "winsound.m4a",
+        )
+
     @app.get("/assets/cards.png")
     @app.get("/assets/card.png")
     def card_asset():

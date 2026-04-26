@@ -972,6 +972,36 @@
         text-transform: uppercase;
       }
 
+      .confetti-layer {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      .confetti-pixel {
+        position: absolute;
+        top: -16px;
+        width: 10px;
+        height: 10px;
+        background: var(--gold);
+        box-shadow: 3px 3px 0 var(--ink);
+        animation: confetti-fall 1150ms linear forwards;
+      }
+
+      @keyframes confetti-fall {
+        0% {
+          opacity: 1;
+          transform: translate3d(0, 0, 0) rotate(0deg);
+        }
+
+        100% {
+          opacity: 0;
+          transform: translate3d(var(--confetti-drift), 105vh, 0) rotate(540deg);
+        }
+      }
+
       .hidden {
         display: none;
       }
@@ -1461,12 +1491,14 @@
 
       <p class="message" id="message" role="status"></p>
     </main>
+    <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
 
     <script>
       const storageKey = "exercise-arcade-front-page-state";
       const browserModeUserId = "local-browser-mode-user";
       const browserModeUserEmail = "browser-mode@local";
       const wheelTickAudioSrc = "/assets/wheel-spin.mp3";
+      const workoutWinAudioSrc = "/assets/winsound.m4a";
       const fallbackDailyTasks = [
         {
           id: "warmup-walk",
@@ -1490,6 +1522,7 @@
           coin_reward: 8
         }
       ];
+      const defaultWorkoutTaskIds = new Set(fallbackDailyTasks.map((task) => task.id));
       const repeatedWheelPattern = [
         { label: "Red", color: "#ff001c", rewardValue: 100 },
         { label: "Orange", color: "#ffae00", rewardValue: 50 },
@@ -1762,6 +1795,7 @@
         diceParityReward: document.getElementById("dice-parity-reward"),
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
+        confettiLayer: document.getElementById("confetti-layer"),
         taskGrid: document.getElementById("task-grid"),
         taskTabs: Array.from(document.querySelectorAll("[data-task-view]")),
         completedTaskPanel: document.getElementById("completed-task-panel"),
@@ -1983,6 +2017,34 @@
         saveTaskState(taskState);
       }
 
+      function withoutReplacedDefaultWorkouts(tasks, generatedTasks) {
+        if (!generatedTasks.length) {
+          return tasks;
+        }
+
+        return tasks.filter((task) => !defaultWorkoutTaskIds.has(task.id));
+      }
+
+      function mergeWorkoutTaskLists(baseTasks, customTasks, generatedTasks) {
+        return [
+          ...withoutReplacedDefaultWorkouts(baseTasks, generatedTasks),
+          ...customTasks,
+          ...generatedTasks
+        ];
+      }
+
+      function replaceGeneratedWorkoutsInTaskList(generatedTasks) {
+        const existingBaseTasks = appState.tasks.filter((task) => {
+          return !task.is_generated && !task.is_custom;
+        });
+        const existingCustomTasks = appState.tasks.filter((task) => task.is_custom);
+        appState.tasks = mergeWorkoutTaskLists(
+          existingBaseTasks,
+          existingCustomTasks,
+          generatedTasks
+        );
+      }
+
       function shuffleItems(items) {
         const shuffled = [...items];
         for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -2033,10 +2095,7 @@
           ...generated.filter((task) => !completedIds.includes(task.id))
         ];
         saveGeneratedWorkoutsForUser(appState.user || guestUser(), nextGenerated);
-        appState.tasks = [
-          ...appState.tasks.filter((task) => !task.is_generated),
-          ...nextGenerated
-        ];
+        replaceGeneratedWorkoutsInTaskList(nextGenerated);
         setTaskView("available");
         renderTaskCards();
         renderCompletedTasks();
@@ -2094,6 +2153,51 @@
         } catch {
           return;
         }
+      }
+
+      function playWorkoutWinSound() {
+        try {
+          const audio = new Audio(workoutWinAudioSrc);
+          audio.volume = 0.8;
+          void audio.play();
+        } catch {
+          return;
+        }
+      }
+
+      function launchWorkoutConfetti() {
+        if (!elements.confettiLayer) {
+          return;
+        }
+
+        const colors = [
+          "#ffd23c",
+          "#00ff9c",
+          "#00d7ff",
+          "#ff4fd8",
+          "#fff8d7"
+        ];
+
+        for (let index = 0; index < 48; index += 1) {
+          const piece = document.createElement("span");
+          piece.className = "confetti-pixel";
+          piece.style.left = `${Math.random() * 100}%`;
+          piece.style.background = colors[index % colors.length];
+          piece.style.animationDelay = `${Math.random() * 180}ms`;
+          piece.style.setProperty(
+            "--confetti-drift",
+            `${Math.round(Math.random() * 180 - 90)}px`
+          );
+          elements.confettiLayer.append(piece);
+          window.setTimeout(() => {
+            piece.remove();
+          }, 1500);
+        }
+      }
+
+      function celebrateWorkoutCompletion() {
+        playWorkoutWinSound();
+        launchWorkoutConfetti();
       }
 
       function describeSpinReward(slice, pointsSpent) {
@@ -3369,6 +3473,7 @@
           updateCoinDisplay(appState.user);
           updateTaskCard(taskCard);
           renderCompletedTasks();
+          celebrateWorkoutCompletion();
           setMessage(
             `Completed ${task.title}. +${formatNumber(task.coin_reward)} local coins.`
           );
@@ -3401,6 +3506,8 @@
           rememberCompletedTask(task.id);
           updateCoinDisplay(result.user);
           updateTaskCard(taskCard);
+          renderCompletedTasks();
+          celebrateWorkoutCompletion();
           setMessage(
             `Completed ${task.title}. +${formatNumber(task.coin_reward)} coins.`
           );
@@ -3777,10 +3884,7 @@
         });
         updateHistory({ logs: [] });
         updateSpinHistory({ spins: [] });
-        appState.tasks = [
-          ...appState.tasks.filter((task) => !task.is_generated),
-          ...generatedWorkoutsForUser(appState.user)
-        ];
+        replaceGeneratedWorkoutsInTaskList(generatedWorkoutsForUser(appState.user));
         renderTaskCards();
         renderCompletedTasks();
         updateTaskCards();
@@ -3856,7 +3960,11 @@
           }
         }
         const generatedTasks = generatedWorkoutsForUser(appState.user || guestUser());
-        appState.tasks = [...serverTasks, ...userCustomTasks, ...generatedTasks];
+        appState.tasks = mergeWorkoutTaskLists(
+          serverTasks,
+          userCustomTasks,
+          generatedTasks
+        );
         saveTaskState(taskState);
         renderTaskCards();
         renderCompletedTasks();
