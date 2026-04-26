@@ -789,6 +789,9 @@
             <button class="primary-button" id="auth-submit" type="submit">
               Log in
             </button>
+            <button class="secondary-button" id="google-login-button" type="button">
+              Sign in with Google
+            </button>
           </form>
         </section>
 
@@ -1074,6 +1077,7 @@
         signupTab: document.getElementById("signup-tab"),
         authForm: document.getElementById("auth-form"),
         authSubmit: document.getElementById("auth-submit"),
+        googleLoginButton: document.getElementById("google-login-button"),
         displayNameField: document.getElementById("display-name-field"),
         displayName: document.getElementById("display-name"),
         identifierLabel: document.getElementById("identifier-label"),
@@ -1949,6 +1953,7 @@
         elements.email.autocomplete = isSignup ? "email" : "username";
         elements.email.placeholder = isSignup ? "" : "Email or display name";
         elements.authSubmit.textContent = isSignup ? "Create Account" : "Log in";
+        elements.googleLoginButton.classList.toggle("hidden", isSignup);
       }
 
       function calculatePreview(steps) {
@@ -2561,6 +2566,9 @@
       elements.loginTab.addEventListener("click", () => setAuthMode("login"));
       elements.signupTab.addEventListener("click", () => setAuthMode("signup"));
       elements.authForm.addEventListener("submit", handleAuth);
+      elements.googleLoginButton.addEventListener("click", () => {
+        window.location.href = "/login";
+      });
       elements.stepsForm.addEventListener("submit", handleSteps);
       elements.logoutButton.addEventListener("click", handleLogout);
       elements.steps.addEventListener("input", updatePreview);

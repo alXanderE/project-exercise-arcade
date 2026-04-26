@@ -1,56 +1,184 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Google Login</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login | Exercise Arcade</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <style>
+        :root {
+            color-scheme: dark;
+            --bg: #101014;
+            --panel: #181425;
+            --text: #fff8d7;
+            --muted: #a7d9ca;
+            --accent: #0877ff;
+            --line: #5fffe0;
+            --ink: #050509;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            padding: 24px;
+            font-family: "Courier New", "Lucida Console", monospace;
+            background:
+                linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+                linear-gradient(135deg, #111014 0%, #151022 42%, #101b19 100%);
+            background-size: 18px 18px, 18px 18px, auto;
+            color: var(--text);
+        }
+
+        .panel {
+            width: min(100%, 420px);
+            padding: 28px;
+            background: var(--panel);
+            border: 3px solid var(--line);
+            box-shadow: 6px 6px 0 var(--ink);
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: 2rem;
+            text-transform: uppercase;
+        }
+
+        p {
+            margin: 0 0 20px;
+            color: var(--muted);
+            line-height: 1.5;
+        }
+
+        .login-button {
+            width: 100%;
+            min-height: 46px;
+            border: 3px solid #fff8d7;
+            background: var(--accent);
+            color: #fff;
+            font: inherit;
+            font-weight: 700;
+            text-transform: uppercase;
+            cursor: pointer;
+            box-shadow: 4px 4px 0 var(--ink);
+        }
+
+        .login-button:hover {
+            transform: translate(2px, 2px);
+            box-shadow: 2px 2px 0 var(--ink);
+        }
+
+        .divider {
+            margin: 18px 0 14px;
+            color: var(--muted);
+            text-align: center;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+        }
+
+        #buttonDiv {
+            display: flex;
+            justify-content: center;
+        }
+
+        #status {
+            min-height: 24px;
+            margin-top: 16px;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        #status.error {
+            color: #ff8da1;
+        }
+    </style>
 </head>
 <body>
-    <div id="buttonDiv"></div> 
+    <main class="panel">
+        <h1>Log in</h1>
+        <p>Use your regular account or continue with Google.</p>
+        <button class="login-button" type="button" onclick="window.location.href='/'">
+            Log in
+        </button>
+        <div class="divider">or</div>
+        <div id="buttonDiv"></div>
+        <div id="status" aria-live="polite"></div>
+    </main>
 
     <script>
+        const statusEl = document.getElementById("status");
+
+        function setStatus(message, isError = false) {
+            statusEl.textContent = message;
+            statusEl.classList.toggle("error", isError);
+        }
+
         async function handleCredentialResponse(response) {
-            console.log("Encoded JWT ID token: " + response.credential);
-            
+            setStatus("Checking your Google account...");
+
             try {
-                // 1. Send the token to your Vercel Backend
-                const res = await fetch('/api/auth', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                const res = await fetch("/api/auth", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ token: response.credential })
                 });
-
                 const data = await res.json();
 
                 if (res.ok && data.success) {
-                    // 2. Success! Show a message and move to your app's dashboard
-                    alert("Logged in as: " + data.user.email);
-                    
-                    // Optional: Store non-sensitive user info in localStorage for the UI
-                    localStorage.setItem('user_name', data.user.name);
-                    
-                    // Redirect to your main app page
-                    window.location.href = "/dashboard.html"; 
+                    localStorage.setItem("google_user", JSON.stringify(data.user));
+                    setStatus("Google sign-in successful. Taking you back to the app...");
+                    window.setTimeout(() => {
+                        window.location.href = "/";
+                    }, 700);
                 } else {
-                    alert("Login failed: " + (data.message || "Unknown error"));
+                    setStatus("Login failed: " + (data.message || "Unknown error"), true);
                 }
             } catch (err) {
                 console.error("Server error:", err);
-                alert("Could not connect to the server.");
+                setStatus("Could not connect to the server.", true);
             }
         }
 
-        window.onload = function () {
-            google.accounts.id.initialize({
-                client_id: "387811960660-c9aach6o1vn1uibifuodcediq2uofgqn.apps.googleusercontent.com",
-                callback: handleCredentialResponse,
-                ux_mode: "popup" 
-            });
+        async function setupGoogleButton() {
+            setStatus("Loading Google sign-in...");
 
-            google.accounts.id.renderButton(
-                document.getElementById("buttonDiv"),
-                { theme: "outline", size: "large" } 
-            );
+            try {
+                const response = await fetch("/api/auth");
+                const config = await response.json();
+
+                if (!response.ok || !config.clientId) {
+                    throw new Error(config.message || "Google sign-in is unavailable.");
+                }
+
+                google.accounts.id.initialize({
+                    client_id: config.clientId,
+                    callback: handleCredentialResponse,
+                    ux_mode: "popup"
+                });
+
+                google.accounts.id.renderButton(
+                    document.getElementById("buttonDiv"),
+                    {
+                        theme: "outline",
+                        size: "large",
+                        width: 300
+                    }
+                );
+
+                setStatus("");
+            } catch (error) {
+                console.error("Google setup error:", error);
+                setStatus(error.message || "Google sign-in is unavailable right now.", true);
+            }
         }
+
+        window.onload = setupGoogleButton;
     </script>
 </body>
 </html>
