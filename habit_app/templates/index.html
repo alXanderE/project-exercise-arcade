@@ -945,7 +945,7 @@
             <span>Daily coin reward</span>
             <input
               id="custom-workout-reward"
-              max="50"
+              max="20"
               min="1"
               required
               type="number"
@@ -1199,7 +1199,7 @@
             category: String(task.category || "Custom").trim(),
             description: String(task.description || "").trim(),
             coin_reward: Math.min(
-              50,
+              20,
               Math.max(1, Number.parseInt(task.coin_reward, 10) || 1)
             ),
             difficulty: "custom",
@@ -1823,7 +1823,7 @@
         const category = elements.customWorkoutCategory.value.trim();
         const description = elements.customWorkoutDescription.value.trim();
         const reward = Math.min(
-          50,
+          20,
           Math.max(1, Number.parseInt(elements.customWorkoutReward.value, 10) || 1)
         );
 
