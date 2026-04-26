@@ -1025,6 +1025,7 @@
       const defaultTaskState = {
         lifetimeCoins: 0,
         completionsByDate: {},
+        completionsByDateByUser: {},
         customTasks: [],
         localAccounts: [],
         localSessionUserId: null,
@@ -1115,6 +1116,11 @@
             completionsByDate:
               parsed.completionsByDate && typeof parsed.completionsByDate === "object"
                 ? parsed.completionsByDate
+                : {},
+            completionsByDateByUser:
+              parsed.completionsByDateByUser &&
+              typeof parsed.completionsByDateByUser === "object"
+                ? parsed.completionsByDateByUser
                 : {},
             customTasks: Array.isArray(parsed.customTasks)
               ? parsed.customTasks
@@ -1283,19 +1289,41 @@
         saveTaskState(taskState);
       }
 
-      function currentLocalAccount() {
-        taskState.localAccounts = cleanLocalAccounts();
-        const userId = taskState.localSessionUserId;
-        if (!userId) {
+      function accountStorageKey(account) {
+        if (!account) {
           return null;
         }
 
-        return taskState.localAccounts.find((account) => account.id === userId) || null;
+        if (account.isGuest) {
+          return browserModeUserId;
+        }
+
+        if (String(account.id || "").startsWith("local-")) {
+          return `local:${account.id}`;
+        }
+
+        const email = String(account.email || "").trim().toLowerCase();
+        if (email) {
+          return `server:${email}`;
+        }
+
+        return `server-id:${account.id}`;
+      }
+
+      function currentLocalAccount() {
+        taskState.localAccounts = cleanLocalAccounts();
+        const sessionKey = taskState.localSessionUserId;
+        if (!sessionKey) {
+          return null;
+        }
+
+        return taskState.localAccounts.find((account) => {
+          return accountStorageKey(account) === sessionKey || account.id === sessionKey;
+        }) || null;
       }
 
       function setCurrentLocalAccount(account) {
         taskState.localAccounts = cleanLocalAccounts();
-        const index = taskState.localAccounts.findIndex((item) => item.id === account.id);
         const normalized = {
           ...account,
           email: String(account.email || "").trim().toLowerCase(),
@@ -1305,6 +1333,10 @@
           localMode: Boolean(account.localMode),
           isGuest: Boolean(account.isGuest)
         };
+        const normalizedKey = accountStorageKey(normalized);
+        const index = taskState.localAccounts.findIndex((item) => {
+          return accountStorageKey(item) === normalizedKey;
+        });
 
         if (index >= 0) {
           taskState.localAccounts[index] = normalized;
@@ -1312,7 +1344,7 @@
           taskState.localAccounts.push(normalized);
         }
 
-        taskState.localSessionUserId = normalized.id;
+        taskState.localSessionUserId = normalizedKey;
         persistLocalState();
         appState.user = normalized;
         return normalized;
@@ -1393,16 +1425,7 @@
           return browserModeUserId;
         }
 
-        if (user.localMode) {
-          return `local:${user.id}`;
-        }
-
-        const email = String(user.email || "").trim().toLowerCase();
-        if (email) {
-          return `server:${email}`;
-        }
-
-        return `server-id:${user.id}`;
+        return accountStorageKey(user);
       }
 
       function legacyUserStorageKey(user) {
@@ -1411,6 +1434,10 @@
         }
 
         return String(user.id);
+      }
+
+      function canUseLegacyUserStorage(user) {
+        return Boolean(user?.isGuest || String(user?.id || "").startsWith("local-"));
       }
 
       function localFitnessLogsForUser(user) {
@@ -1426,6 +1453,7 @@
         }
 
         if (
+          canUseLegacyUserStorage(user) &&
           legacyKey &&
           legacyKey !== preferredKey &&
           Array.isArray(taskState.localFitnessLogsByUser[legacyKey])
@@ -1453,6 +1481,7 @@
         }
 
         if (
+          canUseLegacyUserStorage(user) &&
           legacyKey &&
           legacyKey !== preferredKey &&
           Array.isArray(taskState.localPrizeWheelSpinsByUser[legacyKey])
@@ -1615,7 +1644,13 @@
         }
 
         const today = todayIso();
-        const ids = taskState.completionsByDate[today];
+        const userKey = userStorageKey(appState.user);
+        const completionsForUser =
+          userKey && taskState.completionsByDateByUser &&
+          typeof taskState.completionsByDateByUser[userKey] === "object"
+            ? taskState.completionsByDateByUser[userKey]
+            : null;
+        const ids = completionsForUser?.[today];
         return Array.isArray(ids) ? ids : [];
       }
 
@@ -1625,7 +1660,27 @@
           return;
         }
 
-        taskState.completionsByDate[todayIso()] = ids;
+        const userKey = userStorageKey(appState.user);
+        if (!userKey) {
+          return;
+        }
+
+        if (
+          !taskState.completionsByDateByUser ||
+          typeof taskState.completionsByDateByUser !== "object"
+        ) {
+          taskState.completionsByDateByUser = {};
+        }
+
+        const today = todayIso();
+        const existing =
+          typeof taskState.completionsByDateByUser[userKey] === "object"
+            ? taskState.completionsByDateByUser[userKey]
+            : {};
+        taskState.completionsByDateByUser[userKey] = {
+          ...existing,
+          [today]: ids
+        };
       }
 
       function rememberCompletedTask(taskId) {
@@ -2364,7 +2419,19 @@
       }
 
       elements.resetProgress.addEventListener("click", () => {
-        delete taskState.completionsByDate[todayIso()];
+        if (appState.user?.localMode) {
+          const userKey = userStorageKey(appState.user);
+          const today = todayIso();
+          if (
+            userKey &&
+            taskState.completionsByDateByUser &&
+            typeof taskState.completionsByDateByUser[userKey] === "object"
+          ) {
+            delete taskState.completionsByDateByUser[userKey][today];
+          }
+        } else {
+          delete taskState.completionsByDate[todayIso()];
+        }
         saveTaskState(taskState);
         updateTaskCards();
         updateLocalCoinDisplay();
