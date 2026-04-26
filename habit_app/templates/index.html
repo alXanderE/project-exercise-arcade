@@ -866,7 +866,7 @@
             <div class="wheel-stage">
               <div class="wheel-pointer" aria-hidden="true"></div>
               <img
-                aria-label="Prize wheel"
+                aria-label="Wheel of Fitness"
                 class="wheel-image"
                 id="prize-wheel-image"
                 role="img"
@@ -1745,6 +1745,18 @@
         return nextCompletedIds;
       }
 
+      function activeTasksForCurrentUser() {
+        const seen = new Set();
+        return appState.tasks.filter((task) => {
+          if (!task || !task.id || seen.has(task.id)) {
+            return false;
+          }
+
+          seen.add(task.id);
+          return true;
+        });
+      }
+
       function buildTaskCard(task) {
         const article = document.createElement("article");
         article.className = "task-card";
@@ -1794,7 +1806,7 @@
 
         elements.taskGrid.innerHTML = "";
 
-        for (const task of appState.tasks) {
+        for (const task of activeTasksForCurrentUser()) {
           const taskCard = buildTaskCard(task);
           const button = taskCard.querySelector(".complete-button");
           button.addEventListener("click", () => completeDailyTask(task, taskCard));
@@ -1944,10 +1956,15 @@
       }
 
       function updateLocalCoinDisplay() {
-        const completedToday = currentDailyCompletedIds().length;
-        const taskCount = appState.tasks.length;
-        const dailyCoins = currentDailyCompletedIds().reduce((sum, taskId) => {
-          const task = appState.tasks.find((item) => item.id === taskId);
+        const activeTasks = activeTasksForCurrentUser();
+        const activeTaskIds = new Set(activeTasks.map((task) => task.id));
+        const completedVisibleTaskIds = currentDailyCompletedIds().filter((taskId) => {
+          return activeTaskIds.has(taskId);
+        });
+        const completedToday = completedVisibleTaskIds.length;
+        const taskCount = activeTasks.length;
+        const dailyCoins = completedVisibleTaskIds.reduce((sum, taskId) => {
+          const task = activeTasks.find((item) => item.id === taskId);
           return sum + (task ? task.coin_reward : 0);
         }, 0);
 
