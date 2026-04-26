@@ -1038,6 +1038,7 @@
         completionsByDate: {},
         completionsByDateByUser: {},
         customTasks: [],
+        customTasksByUser: {},
         localAccounts: [],
         localSessionUserId: null,
         localFitnessLogsByUser: {},
@@ -1050,7 +1051,7 @@
         completedTaskIds: [],
         settings: {
           stepsPerPoint: 1000,
-          dailyStepCap: 20000,
+          dailyStepCap: 10000,
           dailyGoalSteps: 10000,
           dailyGoalBonus: 5
         },
@@ -1136,6 +1137,11 @@
             customTasks: Array.isArray(parsed.customTasks)
               ? parsed.customTasks
               : [],
+            customTasksByUser:
+              parsed.customTasksByUser &&
+              typeof parsed.customTasksByUser === "object"
+                ? parsed.customTasksByUser
+                : {},
             localAccounts: Array.isArray(parsed.localAccounts)
               ? parsed.localAccounts
               : [],
@@ -1184,8 +1190,8 @@
           .replace(/^-+|-+$/g, "");
       }
 
-      function cleanCustomTasks() {
-        return taskState.customTasks
+      function normalizeCustomTasks(tasks) {
+        return (Array.isArray(tasks) ? tasks : [])
           .filter((task) => task && typeof task === "object")
           .map((task) => ({
             id: String(task.id || ""),
@@ -1201,6 +1207,40 @@
             is_custom: true
           }))
           .filter((task) => task.id && task.title && task.description);
+      }
+
+      function cleanCustomTasks() {
+        return normalizeCustomTasks(taskState.customTasks);
+      }
+
+      function customTasksForUser(user) {
+        const userKey = userStorageKey(user);
+        if (
+          userKey &&
+          taskState.customTasksByUser &&
+          typeof taskState.customTasksByUser[userKey] !== "undefined"
+        ) {
+          return normalizeCustomTasks(taskState.customTasksByUser[userKey]);
+        }
+
+        if (
+          canUseLegacyUserStorage(user) &&
+          Array.isArray(taskState.customTasks) &&
+          taskState.customTasks.length
+        ) {
+          const migratedTasks = cleanCustomTasks();
+          if (!taskState.customTasksByUser || typeof taskState.customTasksByUser !== "object") {
+            taskState.customTasksByUser = {};
+          }
+          if (userKey) {
+            taskState.customTasksByUser[userKey] = migratedTasks;
+          }
+          taskState.customTasks = [];
+          saveTaskState(taskState);
+          return migratedTasks;
+        }
+
+        return [];
       }
 
       function calculateLevel(points) {
@@ -1804,8 +1844,19 @@
           is_custom: true
         };
 
-        taskState.customTasks = cleanCustomTasks();
-        taskState.customTasks.push(customTask);
+        const userKey = userStorageKey(appState.user);
+        if (!userKey) {
+          setMessage("Choose an account before saving a custom workout.", true);
+          return;
+        }
+
+        if (!taskState.customTasksByUser || typeof taskState.customTasksByUser !== "object") {
+          taskState.customTasksByUser = {};
+        }
+
+        const userTasks = customTasksForUser(appState.user);
+        userTasks.push(customTask);
+        taskState.customTasksByUser[userKey] = userTasks;
         saveTaskState(taskState);
         appState.tasks.push(customTask);
         renderTaskCards();
@@ -2277,8 +2328,8 @@
           serverTasks = fallbackDailyTasks;
         }
 
-        taskState.customTasks = cleanCustomTasks();
-        appState.tasks = [...serverTasks, ...taskState.customTasks];
+        const userCustomTasks = customTasksForUser(appState.user);
+        appState.tasks = [...serverTasks, ...userCustomTasks];
         saveTaskState(taskState);
         renderTaskCards();
         updateLocalCoinDisplay();

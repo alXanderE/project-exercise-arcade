@@ -45,7 +45,7 @@ def create_app():
         os.getenv("FITNESS_STEPS_PER_POINT", "1000")
     )
     app.config["FITNESS_DAILY_STEP_CAP"] = int(
-        os.getenv("FITNESS_DAILY_STEP_CAP", "20000")
+        os.getenv("FITNESS_DAILY_STEP_CAP", "10000")
     )
     app.config["FITNESS_DAILY_GOAL_STEPS"] = int(
         os.getenv("FITNESS_DAILY_GOAL_STEPS", "10000")
