@@ -3021,8 +3021,9 @@
         const startBoundary = Math.floor(startRotation / sliceAngle);
         const startTime = performance.now();
 
-        appState.prizeWheel.tickBoundary = startBoundary;
+        appState.prizeWheel.tickBoundary = startBoundary - 1;
         elements.prizeWheelImage.style.transition = "none";
+        playWheelTickSound();
 
         function easeOutCubic(value) {
           return 1 - Math.pow(1 - value, 3);
