@@ -238,10 +238,7 @@ def verify_google_id_token(token):
 
 
 def sync_sql_user_from_auth_document(auth_user):
-    sql_user_id = normalize_sql_user_id(auth_user.get("sql_user_id"))
-    user = User.query.get(sql_user_id) if sql_user_id else None
-    if not user:
-        user = User.query.filter_by(email=auth_user["email"]).first()
+    user = User.query.filter_by(email=auth_user["email"]).first()
 
     if not user:
         user = User(
@@ -260,9 +257,6 @@ def sync_sql_user_from_auth_document(auth_user):
         user.points = int(auth_user.get("points") or user.points or 0)
         user.level = int(auth_user.get("level") or user.level or 1)
         db.session.commit()
-
-    if auth_user.get("sql_user_id") != user.id and mongo_auth_enabled():
-        update_auth_user(auth_user["email"], sql_user_id=user.id)
 
     return user
 

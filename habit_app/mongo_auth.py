@@ -43,8 +43,12 @@ def ensure_mongo_auth_indexes():
     users = get_auth_collection()
     users.create_index([("email", ASCENDING)], unique=True)
     users.create_index([("display_name_lower", ASCENDING)], unique=True)
-    users.create_index([("sql_user_id", ASCENDING)], unique=True, sparse=True)
     users.create_index([("session_token", ASCENDING)], unique=True, sparse=True)
+    try:
+        if "sql_user_id_1" in users.index_information():
+            users.drop_index("sql_user_id_1")
+    except Exception:
+        pass
 
 
 def current_timestamp():
@@ -153,9 +157,6 @@ def create_auth_user(email, display_name, password_hash, sql_user_id):
         "created_at": timestamp,
         "updated_at": timestamp,
     }
-    normalized_sql_user_id = normalize_sql_user_id(sql_user_id)
-    if normalized_sql_user_id is not None:
-        document["sql_user_id"] = normalized_sql_user_id
     users.insert_one(document)
     return normalize_auth_document(document)
 
