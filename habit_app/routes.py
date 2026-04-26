@@ -441,6 +441,15 @@ def normalize_date(value):
     return datetime.strptime(value, "%Y-%m-%d").date()
 
 
+def requested_local_date():
+    payload = request.get_json(silent=True) or {}
+    local_date = payload.get("localDate") or request.args.get("localDate")
+    try:
+        return normalize_date(local_date)
+    except ValueError:
+        return None
+
+
 def update_habit_streak(habit, completed_on):
     if habit.last_completed_on is None:
         habit.streak_count = 1
@@ -687,16 +696,19 @@ def daily_tasks():
 @api.get("/tasks/daily/completions")
 @require_auth
 def daily_task_completions(user):
+    local_date = requested_local_date()
+    if local_date is None:
+        return jsonify({"message": "localDate must use YYYY-MM-DD format."}), 400
+
     if mongo_game_enabled():
         sync_sql_user_points(user)
-        result = get_daily_task_completions(user, date.today().isoformat())
+        result = get_daily_task_completions(user, local_date.isoformat())
         result["user"] = serialize_user(user)
         return jsonify(result)
 
-    today = date.today()
     completions = DailyTaskCompletion.query.filter_by(
         user_id=user.id,
-        completed_on=today,
+        completed_on=local_date,
     ).all()
 
     return jsonify(
@@ -714,12 +726,16 @@ def daily_task_completions(user):
 @api.post("/tasks/daily/<task_id>/complete")
 @require_auth
 def complete_daily_task(user, task_id):
+    local_date = requested_local_date()
+    if local_date is None:
+        return jsonify({"message": "localDate must use YYYY-MM-DD format."}), 400
+
     if mongo_game_enabled():
         sync_sql_user_points(user)
         payload, error_message, status_code = complete_daily_task_mongo(
             user,
             task_id,
-            date.today().isoformat(),
+            local_date.isoformat(),
             calculate_level,
         )
         if error_message:
@@ -731,11 +747,10 @@ def complete_daily_task(user, task_id):
     if not task:
         return jsonify({"message": "Daily task not found."}), 404
 
-    today = date.today()
     existing_completion = DailyTaskCompletion.query.filter_by(
         user_id=user.id,
         task_id=task.id,
-        completed_on=today,
+        completed_on=local_date,
     ).first()
     if existing_completion:
         return (
@@ -752,7 +767,7 @@ def complete_daily_task(user, task_id):
     completion = DailyTaskCompletion(
         user_id=user.id,
         task_id=task.id,
-        completed_on=today,
+        completed_on=local_date,
         points_awarded=task.coin_reward,
     )
     user.points += task.coin_reward

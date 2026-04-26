@@ -2849,7 +2849,10 @@
         try {
           const result = await apiFetch(
             `/api/tasks/daily/${encodeURIComponent(task.id)}/complete`,
-            { method: "POST" }
+            {
+              method: "POST",
+              body: JSON.stringify({ localDate: todayIso() })
+            }
           );
           rememberCompletedTask(task.id);
           updateCoinDisplay(result.user);
@@ -3192,7 +3195,7 @@
           apiFetch("/api/fitness/history"),
           apiFetch("/api/arcade/prize-wheel"),
           apiFetch("/api/arcade/prize-wheel/history"),
-          apiFetch("/api/tasks/daily/completions")
+          apiFetch(`/api/tasks/daily/completions?localDate=${encodeURIComponent(todayIso())}`)
         ]);
 
         appState.completedTaskIds = Array.isArray(taskCompletions.completedTaskIds)
