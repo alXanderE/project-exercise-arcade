@@ -654,6 +654,16 @@ def draw_blackjack_card(state):
     return state["deck"].pop()
 
 
+def dice_reward_for_bet(kind, amount):
+    if kind == "parity":
+        return int(amount) // 4
+    if kind in {"die_one", "die_two"}:
+        return int(amount) // 2
+    if kind == "total":
+        return int(amount)
+    return 0
+
+
 def apply_prize_wheel_reward(user, spin):
     if spin.reward_type == "spin_multiplier":
         user.points = max(
@@ -723,33 +733,42 @@ def daily_task_completions(user):
     )
 
 
+@api.post("/tasks/daily/complete")
 @api.post("/tasks/daily/<task_id>/complete")
 @require_auth
-def complete_daily_task(user, task_id):
+def complete_daily_task(user, task_id=None):
+    payload = request.get_json(silent=True) or {}
+    resolved_task_id = task_id or (payload.get("taskId") or "").strip()
+    if not resolved_task_id:
+        return jsonify({"message": "taskId is required."}), 400
+
     local_date = requested_local_date()
     if local_date is None:
         return jsonify({"message": "localDate must use YYYY-MM-DD format."}), 400
 
     if mongo_game_enabled():
-        sync_sql_user_points(user)
-        payload, error_message, status_code = complete_daily_task_mongo(
-            user,
-            task_id,
-            local_date.isoformat(),
-            calculate_level,
-        )
+        try:
+            sync_sql_user_points(user)
+            payload, error_message, status_code = complete_daily_task_mongo(
+                user,
+                resolved_task_id,
+                local_date.isoformat(),
+                calculate_level,
+            )
+        except Exception:
+            return jsonify({"message": "Daily task progress could not be saved right now."}), 500
         if error_message:
             return jsonify({"message": error_message}), status_code
         payload["user"] = serialize_user(user)
         return jsonify(payload), status_code
 
-    task = find_daily_task(task_id)
+    task = find_daily_task(resolved_task_id)
     if not task:
         return jsonify({"message": "Daily task not found."}), 404
 
     existing_completion = DailyTaskCompletion.query.filter_by(
         user_id=user.id,
-        task_id=task.id,
+        task_id=resolved_task_id,
         completed_on=local_date,
     ).first()
     if existing_completion:
@@ -766,7 +785,7 @@ def complete_daily_task(user, task_id):
 
     completion = DailyTaskCompletion(
         user_id=user.id,
-        task_id=task.id,
+        task_id=resolved_task_id,
         completed_on=local_date,
         points_awarded=task.coin_reward,
     )
@@ -809,14 +828,17 @@ def log_fitness_steps(user):
             return jsonify({"message": "steps cannot be negative."}), 400
 
         notes = (payload.get("notes") or "").strip() or None
-        result = save_fitness_steps_mongo(
-            user,
-            logged_on=logged_on,
-            steps_to_add=steps,
-            notes=notes,
-            calculate_points_fn=calculate_fitness_points,
-            calculate_level_fn=calculate_level,
-        )
+        try:
+            result = save_fitness_steps_mongo(
+                user,
+                logged_on=logged_on,
+                steps_to_add=steps,
+                notes=notes,
+                calculate_points_fn=calculate_fitness_points,
+                calculate_level_fn=calculate_level,
+            )
+        except Exception:
+            return jsonify({"message": "Fitness progress could not be saved right now."}), 500
         result["message"] = "Fitness steps logged."
         result["rewardSettings"] = fitness_reward_settings()
         result["user"] = serialize_user(user)
@@ -993,16 +1015,19 @@ def spin_prize_wheel(user):
             wheel_rule["reward_type"],
             wheel_rule["reward_value"],
         )
-        result = record_prize_wheel_spin(
-            user,
-            slice_id=winning_slice.id,
-            prize_label=wheel_rule["label"],
-            reward_type=wheel_rule["reward_type"],
-            reward_value=wheel_rule["reward_value"],
-            points_spent=spin_cost,
-            reward_delta=reward_delta,
-            calculate_level_fn=calculate_level,
-        )
+        try:
+            result = record_prize_wheel_spin(
+                user,
+                slice_id=winning_slice.id,
+                prize_label=wheel_rule["label"],
+                reward_type=wheel_rule["reward_type"],
+                reward_value=wheel_rule["reward_value"],
+                points_spent=spin_cost,
+                reward_delta=reward_delta,
+                calculate_level_fn=calculate_level,
+            )
+        except Exception:
+            return jsonify({"message": "The prize wheel could not be updated right now."}), 500
         spin = result["spin"]
         prize = None
     else:
@@ -1252,23 +1277,19 @@ def roll_dice_game(user):
 
     for bet in bets:
         won = False
-        multiplier = 0
         if bet["kind"] == "die_one":
             won = die_one == bet["value"]
-            multiplier = 6
         elif bet["kind"] == "die_two":
             won = die_two == bet["value"]
-            multiplier = 6
         elif bet["kind"] == "total":
             won = total == bet["value"]
-            multiplier = 10
         elif bet["kind"] == "parity":
             won = parity == bet["value"]
-            multiplier = 2
 
-        payout = bet["amount"] * multiplier if won else 0
+        reward = dice_reward_for_bet(bet["kind"], bet["amount"])
+        payout = bet["amount"] + reward if won else 0
         winnings += payout
-        results.append({**bet, "won": won, "payout": payout})
+        results.append({**bet, "won": won, "reward": reward, "payout": payout})
 
     apply_point_delta(user, -total_wager + winnings)
 

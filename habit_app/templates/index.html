@@ -816,6 +816,14 @@
         grid-column: 1 / -1;
       }
 
+      .bet-reward {
+        color: var(--gold-soft);
+        font-size: 0.78rem;
+        font-weight: 700;
+        min-height: 1rem;
+        text-transform: uppercase;
+      }
+
       .game-actions {
         display: flex;
         align-items: center;
@@ -1256,6 +1264,7 @@
                 <label>
                   <span>Die 1 bet</span>
                   <input id="die-one-bet" min="0" type="number" value="0">
+                  <strong class="bet-reward" id="die-one-reward">Reward +0</strong>
                 </label>
                 <label>
                   <span>Die 2 number</span>
@@ -1264,6 +1273,7 @@
                 <label>
                   <span>Die 2 bet</span>
                   <input id="die-two-bet" min="0" type="number" value="0">
+                  <strong class="bet-reward" id="die-two-reward">Reward +0</strong>
                 </label>
                 <label>
                   <span>Total number</span>
@@ -1272,6 +1282,7 @@
                 <label>
                   <span>Total bet</span>
                   <input id="dice-total-bet" min="0" type="number" value="0">
+                  <strong class="bet-reward" id="dice-total-reward">Reward +0</strong>
                 </label>
                 <label>
                   <span>Odd/even</span>
@@ -1284,6 +1295,7 @@
                 <label>
                   <span>Odd/even bet</span>
                   <input id="dice-parity-bet" min="0" type="number" value="0">
+                  <strong class="bet-reward" id="dice-parity-reward">Reward +0</strong>
                 </label>
               </div>
               <button class="primary-button" id="dice-roll-button" type="submit">
@@ -1537,6 +1549,10 @@
         dieTwoFace: document.getElementById("die-two-face"),
         diceTotalDisplay: document.getElementById("dice-total-display"),
         diceResult: document.getElementById("dice-result"),
+        dieOneReward: document.getElementById("die-one-reward"),
+        dieTwoReward: document.getElementById("die-two-reward"),
+        diceTotalReward: document.getElementById("dice-total-reward"),
+        diceParityReward: document.getElementById("dice-parity-reward"),
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
         taskGrid: document.getElementById("task-grid"),
@@ -2440,6 +2456,31 @@
         };
       }
 
+      function diceRewardForBet(kind, amount) {
+        const safeAmount = Math.max(0, Number.parseInt(amount, 10) || 0);
+        if (kind === "parity") {
+          return Math.floor(safeAmount / 4);
+        }
+        if (kind === "die_one" || kind === "die_two") {
+          return Math.floor(safeAmount / 2);
+        }
+        if (kind === "total") {
+          return safeAmount;
+        }
+        return 0;
+      }
+
+      function updateDiceRewardPreview() {
+        elements.dieOneReward.textContent =
+          `Reward +${formatNumber(diceRewardForBet("die_one", elements.dieOneBet.value))}`;
+        elements.dieTwoReward.textContent =
+          `Reward +${formatNumber(diceRewardForBet("die_two", elements.dieTwoBet.value))}`;
+        elements.diceTotalReward.textContent =
+          `Reward +${formatNumber(diceRewardForBet("total", elements.diceTotalBet.value))}`;
+        elements.diceParityReward.textContent =
+          `Reward +${formatNumber(diceRewardForBet("parity", elements.diceParityBet.value))}`;
+      }
+
       function rollLocalDice(payload) {
         const currentUser = currentLocalAccount();
         if (!currentUser) {
@@ -2487,23 +2528,19 @@
         let winnings = 0;
         const resolvedBets = bets.map((bet) => {
           let won = false;
-          let multiplier = 0;
           if (bet.kind === "die_one") {
             won = dieOne === bet.value;
-            multiplier = 6;
           } else if (bet.kind === "die_two") {
             won = dieTwo === bet.value;
-            multiplier = 6;
           } else if (bet.kind === "total") {
             won = total === bet.value;
-            multiplier = 10;
           } else {
             won = parity === bet.value;
-            multiplier = 2;
           }
-          const payout = won ? bet.amount * multiplier : 0;
+          const reward = diceRewardForBet(bet.kind, bet.amount);
+          const payout = won ? bet.amount + reward : 0;
           winnings += payout;
-          return { ...bet, won, payout };
+          return { ...bet, won, reward, payout };
         });
         const user = updateLocalUserPoints(-totalWager + winnings);
 
@@ -3485,6 +3522,14 @@
         handleBlackjackAction("stand");
       });
       elements.diceForm.addEventListener("submit", handleDiceRoll);
+      [
+        elements.dieOneBet,
+        elements.dieTwoBet,
+        elements.diceTotalBet,
+        elements.diceParityBet
+      ].forEach((input) => {
+        input.addEventListener("input", updateDiceRewardPreview);
+      });
       elements.showCustomWorkout.addEventListener("click", () => {
         if (elements.showCustomWorkout.dataset.canSaveServerWorkout !== "true") {
           setMessage(
@@ -3505,6 +3550,7 @@
       resetBlackjackTable();
       renderDieFace(elements.dieOneFace, null);
       renderDieFace(elements.dieTwoFace, null);
+      updateDiceRewardPreview();
       updatePreview();
       checkSession();
     </script>

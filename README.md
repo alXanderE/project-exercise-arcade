@@ -45,11 +45,11 @@ MONGODB_USERS_COLLECTION=users
 GOOGLE_CLIENT_ID=<your-google-oauth-client-id>
 ```
 
-With `MONGODB_URI` configured, signup and login use MongoDB for account records
-while the existing SQL database continues to hold gameplay data such as points,
-fitness logs, daily task completions, and prize wheel history. Google sign-in
-uses the same session cookie flow and will create or reuse the Mongo-backed
-account for the Google email address.
+With `MONGODB_URI` configured, signup and login use MongoDB for account records,
+and the user document also stores gameplay/account data such as points, fitness
+logs, daily task completions, custom workouts, and prize wheel history. Google
+sign-in uses the same session cookie flow and will create or reuse the
+Mongo-backed account for the Google email address.
 
 ## API routes
 
