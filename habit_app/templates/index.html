@@ -839,6 +839,100 @@
         margin-top: 14px;
       }
 
+      .gym-panel {
+        margin-bottom: 18px;
+      }
+
+      .gym-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 0.42fr);
+        gap: 18px;
+        align-items: stretch;
+      }
+
+      .gym-room {
+        position: relative;
+        min-height: 360px;
+        overflow: hidden;
+        border: 3px solid var(--accent);
+        background:
+          linear-gradient(rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.08)),
+          url("/assets/gym-background.png") center / cover no-repeat;
+        box-shadow: inset 0 0 0 4px #151224, 5px 5px 0 var(--ink);
+        image-rendering: pixelated;
+      }
+
+      .gym-room::after {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+        background-size: 16px 16px;
+      }
+
+      .gym-placed-item {
+        position: absolute;
+        display: grid;
+        place-items: center;
+        width: var(--item-width);
+        min-width: 64px;
+        border: 0;
+        background: transparent;
+        cursor: grab;
+        filter: drop-shadow(5px 5px 0 rgba(5, 5, 9, 0.9));
+        transform: translate(-50%, -50%);
+      }
+
+      .gym-placed-item:active {
+        cursor: grabbing;
+      }
+
+      .gym-placed-item img {
+        width: 100%;
+        height: auto;
+        image-rendering: pixelated;
+      }
+
+      .gym-store {
+        display: grid;
+        gap: 10px;
+      }
+
+      .gym-store-item {
+        display: grid;
+        grid-template-columns: 68px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        padding: 10px;
+        border: 3px solid #6a5f92;
+        background: #111827;
+      }
+
+      .gym-store-item img {
+        width: 62px;
+        height: 62px;
+        object-fit: contain;
+        image-rendering: pixelated;
+      }
+
+      .gym-store-copy {
+        display: grid;
+        gap: 6px;
+      }
+
+      .gym-store-copy strong {
+        color: var(--gold-soft);
+      }
+
+      .gym-store-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
       .task-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1014,7 +1108,8 @@
         .wheel-visuals,
         .game-layout,
         .bet-grid,
-        .workout-generator {
+        .workout-generator,
+        .gym-layout {
           grid-template-columns: 1fr;
         }
 
@@ -1368,6 +1463,20 @@
         </div>
       </section>
 
+      <section class="app-panel gym-panel hidden" id="gym-panel">
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Gym room</span>
+            <h2>Build your gym</h2>
+          </div>
+          <span class="helper-text" id="gym-status">Each item costs 1,000 coins.</span>
+        </div>
+        <div class="gym-layout">
+          <div class="gym-room" id="gym-room" aria-label="Your gym room"></div>
+          <aside class="gym-store" id="gym-store" aria-label="Gym equipment store"></aside>
+        </div>
+      </section>
+
       <section class="app-panel task-toolbar">
         <div class="section-head">
           <div>
@@ -1499,6 +1608,49 @@
       const browserModeUserEmail = "browser-mode@local";
       const wheelTickAudioSrc = "/assets/wheel-spin.mp3";
       const workoutWinAudioSrc = "/assets/winsound.m4a";
+      const gymEquipmentCost = 100;
+      const gymEquipmentCatalog = [
+        {
+          id: "bench",
+          name: "Bench",
+          image: "/assets/gym-equipment/bench.png",
+          width: 118,
+          defaultX: 26,
+          defaultY: 68
+        },
+        {
+          id: "cablemachine",
+          name: "Cable Machine",
+          image: "/assets/gym-equipment/cablemachine.png",
+          width: 128,
+          defaultX: 74,
+          defaultY: 43
+        },
+        {
+          id: "dumbbells",
+          name: "Dumbbells",
+          image: "/assets/gym-equipment/dumbbells.png",
+          width: 92,
+          defaultX: 48,
+          defaultY: 74
+        },
+        {
+          id: "machine",
+          name: "Weight Machine",
+          image: "/assets/gym-equipment/machine.png",
+          width: 126,
+          defaultX: 55,
+          defaultY: 48
+        },
+        {
+          id: "treadmill",
+          name: "Treadmill",
+          image: "/assets/gym-equipment/treadmill.png",
+          width: 124,
+          defaultX: 28,
+          defaultY: 45
+        }
+      ];
       const fallbackDailyTasks = [
         {
           id: "warmup-walk",
@@ -1685,6 +1837,8 @@
         customTasks: [],
         customTasksByUser: {},
         generatedWorkoutsByUser: {},
+        gymOwnedItemsByUser: {},
+        gymPlacedItemsByUser: {},
         localAccounts: [],
         localSessionUserId: null,
         localFitnessLogsByUser: {},
@@ -1720,7 +1874,9 @@
           bet: 0,
           status: "idle",
           dealerRevealed: false
-        }
+        },
+        selectedGymItemId: null,
+        draggedGymItemId: null
       };
 
       const elements = {
@@ -1729,6 +1885,10 @@
         summaryPanel: document.getElementById("summary-panel"),
         historyPanel: document.getElementById("history-panel"),
         prizeWheelPanel: document.getElementById("prize-wheel-panel"),
+        gymPanel: document.getElementById("gym-panel"),
+        gymRoom: document.getElementById("gym-room"),
+        gymStore: document.getElementById("gym-store"),
+        gymStatus: document.getElementById("gym-status"),
         arcadeTabs: Array.from(document.querySelectorAll("[data-arcade-game]")),
         arcadePanels: Array.from(document.querySelectorAll("[data-arcade-panel]")),
         arcadeBalanceNote: document.getElementById("arcade-balance-note"),
@@ -1846,6 +2006,16 @@
               parsed.generatedWorkoutsByUser &&
               typeof parsed.generatedWorkoutsByUser === "object"
                 ? parsed.generatedWorkoutsByUser
+                : {},
+            gymOwnedItemsByUser:
+              parsed.gymOwnedItemsByUser &&
+              typeof parsed.gymOwnedItemsByUser === "object"
+                ? parsed.gymOwnedItemsByUser
+                : {},
+            gymPlacedItemsByUser:
+              parsed.gymPlacedItemsByUser &&
+              typeof parsed.gymPlacedItemsByUser === "object"
+                ? parsed.gymPlacedItemsByUser
                 : {},
             localAccounts: Array.isArray(parsed.localAccounts)
               ? parsed.localAccounts
@@ -2470,6 +2640,255 @@
 
       function canUseLegacyUserStorage(user) {
         return Boolean(user?.isGuest || String(user?.id || "").startsWith("local-"));
+      }
+
+      function gymStateKey(user = appState.user || guestUser()) {
+        return userStorageKey(user) || browserModeUserId;
+      }
+
+      function equipmentForId(itemId) {
+        return gymEquipmentCatalog.find((item) => item.id === itemId) || null;
+      }
+
+      function gymOwnedItemsForUser(user = appState.user || guestUser()) {
+        const key = gymStateKey(user);
+        const owned =
+          taskState.gymOwnedItemsByUser &&
+          Array.isArray(taskState.gymOwnedItemsByUser[key])
+            ? taskState.gymOwnedItemsByUser[key]
+            : [];
+        return owned.filter((itemId) => equipmentForId(itemId));
+      }
+
+      function saveGymOwnedItemsForUser(user, ownedItems) {
+        const key = gymStateKey(user);
+        if (!taskState.gymOwnedItemsByUser || typeof taskState.gymOwnedItemsByUser !== "object") {
+          taskState.gymOwnedItemsByUser = {};
+        }
+        taskState.gymOwnedItemsByUser[key] = Array.from(new Set(ownedItems))
+          .filter((itemId) => equipmentForId(itemId));
+        saveTaskState(taskState);
+      }
+
+      function gymPlacedItemsForUser(user = appState.user || guestUser()) {
+        const key = gymStateKey(user);
+        const placed =
+          taskState.gymPlacedItemsByUser &&
+          Array.isArray(taskState.gymPlacedItemsByUser[key])
+            ? taskState.gymPlacedItemsByUser[key]
+            : [];
+        return placed
+          .filter((item) => item && equipmentForId(item.id))
+          .map((item) => {
+            const equipment = equipmentForId(item.id);
+            return {
+              id: item.id,
+              x: Math.min(96, Math.max(4, Number(item.x) || equipment.defaultX)),
+              y: Math.min(92, Math.max(8, Number(item.y) || equipment.defaultY)),
+              width: Math.max(64, Number(item.width) || equipment.width)
+            };
+          });
+      }
+
+      function saveGymPlacedItemsForUser(user, placedItems) {
+        const key = gymStateKey(user);
+        if (!taskState.gymPlacedItemsByUser || typeof taskState.gymPlacedItemsByUser !== "object") {
+          taskState.gymPlacedItemsByUser = {};
+        }
+        taskState.gymPlacedItemsByUser[key] = gymEquipmentCatalog
+          .map((equipment) => placedItems.find((item) => item.id === equipment.id))
+          .filter(Boolean);
+        saveTaskState(taskState);
+      }
+
+      function renderGymStore() {
+        if (!elements.gymStore) {
+          return;
+        }
+
+        const owned = gymOwnedItemsForUser();
+        const balance = appState.user?.points || 0;
+        elements.gymStore.innerHTML = "";
+
+        for (const equipment of gymEquipmentCatalog) {
+          const isOwned = owned.includes(equipment.id);
+          const item = document.createElement("article");
+          item.className = "gym-store-item";
+          item.innerHTML = `
+            <img alt="" src="${equipment.image}">
+            <div class="gym-store-copy">
+              <strong>${equipment.name}</strong>
+              <span class="helper-text">${isOwned ? "Owned" : `${formatNumber(gymEquipmentCost)} coins`}</span>
+              <div class="gym-store-actions">
+                <button class="${isOwned ? "secondary-button" : "primary-button"}" type="button">
+                  ${isOwned ? "Place" : "Buy"}
+                </button>
+              </div>
+            </div>
+          `;
+          const button = item.querySelector("button");
+          button.disabled = !isOwned && balance < gymEquipmentCost;
+          button.addEventListener("click", () => {
+            if (isOwned) {
+              selectGymItem(equipment.id);
+            } else {
+              purchaseGymItem(equipment.id);
+            }
+          });
+          elements.gymStore.append(item);
+        }
+      }
+
+      function renderGymRoom() {
+        if (!elements.gymRoom) {
+          return;
+        }
+
+        elements.gymRoom.innerHTML = "";
+        const placed = gymPlacedItemsForUser();
+        for (const item of placed) {
+          const equipment = equipmentForId(item.id);
+          const button = document.createElement("button");
+          button.className = "gym-placed-item";
+          button.type = "button";
+          button.dataset.itemId = item.id;
+          button.style.left = `${item.x}%`;
+          button.style.top = `${item.y}%`;
+          button.style.setProperty("--item-width", `${item.width}px`);
+          button.innerHTML = `<img alt="${equipment.name}" src="${equipment.image}">`;
+          button.addEventListener("click", (event) => {
+            event.stopPropagation();
+            selectGymItem(item.id);
+          });
+          button.addEventListener("pointerdown", (event) => {
+            appState.draggedGymItemId = item.id;
+            button.setPointerCapture(event.pointerId);
+          });
+          button.addEventListener("pointermove", (event) => {
+            if (appState.draggedGymItemId !== item.id) {
+              return;
+            }
+            moveGymItemToPointer(event);
+          });
+          button.addEventListener("pointerup", () => {
+            appState.draggedGymItemId = null;
+          });
+          elements.gymRoom.append(button);
+        }
+      }
+
+      function updateGymStatus(text) {
+        if (!elements.gymStatus) {
+          return;
+        }
+        elements.gymStatus.textContent = text ||
+          `Each item costs ${formatNumber(gymEquipmentCost)} coins.`;
+      }
+
+      function refreshGymRoom() {
+        renderGymRoom();
+        renderGymStore();
+        updateGymStatus();
+      }
+
+      function selectGymItem(itemId) {
+        const equipment = equipmentForId(itemId);
+        if (!equipment) {
+          return;
+        }
+        appState.selectedGymItemId = itemId;
+        updateGymStatus(`${equipment.name} selected. Click the room to place it.`);
+      }
+
+      function roomPointerPosition(event) {
+        const rect = elements.gymRoom.getBoundingClientRect();
+        return {
+          x: Math.min(96, Math.max(4, ((event.clientX - rect.left) / rect.width) * 100)),
+          y: Math.min(92, Math.max(8, ((event.clientY - rect.top) / rect.height) * 100))
+        };
+      }
+
+      function placeGymItem(itemId, position) {
+        const equipment = equipmentForId(itemId);
+        if (!equipment) {
+          return;
+        }
+
+        const placed = gymPlacedItemsForUser().filter((item) => item.id !== itemId);
+        placed.push({
+          id: itemId,
+          x: position.x,
+          y: position.y,
+          width: equipment.width
+        });
+        saveGymPlacedItemsForUser(appState.user || guestUser(), placed);
+        renderGymRoom();
+      }
+
+      function moveGymItemToPointer(event) {
+        const itemId = appState.draggedGymItemId;
+        if (!itemId) {
+          return;
+        }
+        const position = roomPointerPosition(event);
+        const placed = gymPlacedItemsForUser().map((item) => {
+          return item.id === itemId ? { ...item, ...position } : item;
+        });
+        saveGymPlacedItemsForUser(appState.user || guestUser(), placed);
+        const itemButton = elements.gymRoom.querySelector(`[data-item-id="${itemId}"]`);
+        if (itemButton) {
+          itemButton.style.left = `${position.x}%`;
+          itemButton.style.top = `${position.y}%`;
+        }
+      }
+
+      function handleGymRoomClick(event) {
+        if (!appState.selectedGymItemId) {
+          updateGymStatus("Choose an owned item from the store first.");
+          return;
+        }
+        placeGymItem(appState.selectedGymItemId, roomPointerPosition(event));
+        const equipment = equipmentForId(appState.selectedGymItemId);
+        updateGymStatus(`${equipment.name} placed. Drag it any time to move it.`);
+        appState.selectedGymItemId = null;
+      }
+
+      async function purchaseGymItem(itemId) {
+        const equipment = equipmentForId(itemId);
+        if (!equipment) {
+          return;
+        }
+
+        const balance = appState.user?.points || 0;
+        if (balance < gymEquipmentCost) {
+          setMessage(`Need ${formatNumber(gymEquipmentCost - balance)} more coins for ${equipment.name}.`, true);
+          return;
+        }
+
+        try {
+          if (appState.user && !appState.user.isGuest) {
+            const result = await apiFetch("/api/gym/equipment/purchase", {
+              method: "POST",
+              body: JSON.stringify({ itemId })
+            });
+            updateCoinDisplay(result.user);
+          } else {
+            appState.user = {
+              ...(appState.user || guestUser()),
+              points: Math.max(0, balance - gymEquipmentCost),
+              level: calculateLevel(Math.max(0, balance - gymEquipmentCost))
+            };
+            updateCoinDisplay(appState.user);
+          }
+
+          const owned = gymOwnedItemsForUser();
+          saveGymOwnedItemsForUser(appState.user || guestUser(), [...owned, itemId]);
+          selectGymItem(itemId);
+          renderGymStore();
+          setMessage(`${equipment.name} purchased for ${formatNumber(gymEquipmentCost)} coins.`);
+        } catch (error) {
+          setMessage(error.message, true);
+        }
       }
 
       function localFitnessLogsForUser(user) {
@@ -3441,6 +3860,7 @@
         updateCustomWorkoutAvailability();
         updateArcadeControls();
         updatePrizeWheelControls();
+        refreshGymRoom();
       }
 
       function updateTaskCard(taskCard) {
@@ -3837,6 +4257,7 @@
         elements.summaryPanel.classList.remove("hidden");
         elements.historyPanel.classList.remove("hidden");
         elements.prizeWheelPanel.classList.remove("hidden");
+        elements.gymPanel.classList.remove("hidden");
       }
 
       function showAuthedShell(user) {
@@ -4134,6 +4555,7 @@
         tab.addEventListener("click", () => setTaskView(tab.dataset.taskView));
       });
       elements.generateWorkouts.addEventListener("click", generateWorkoutTasks);
+      elements.gymRoom.addEventListener("click", handleGymRoomClick);
       elements.showCustomWorkout.addEventListener("click", () => {
         if (elements.showCustomWorkout.dataset.canSaveServerWorkout !== "true") {
           setMessage(

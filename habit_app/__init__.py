@@ -1,6 +1,9 @@
+import base64
+import json
 import os
+import struct
 
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, Response, abort, render_template, send_from_directory
 
 from .extensions import db
 from .mongo_auth import ensure_mongo_auth_indexes
@@ -24,6 +27,42 @@ def default_database_url():
         return "sqlite:////tmp/exercise_arcade.db"
 
     return "sqlite:///exercise_arcade.db"
+
+
+GYM_EQUIPMENT_FILES = {
+    "bench": "bench.pixil",
+    "cablemachine": "cablemachine.pixil",
+    "dumbbells": "dumbbells.pixil",
+    "machine": "machine.pixil",
+    "treadmill": "treadmill.pixil",
+}
+
+
+def pixil_png_response(path):
+    with open(path, "r", encoding="utf-8") as pixil_file:
+        document = json.load(pixil_file)
+
+    data_uris = [document.get("preview", "")]
+    for frame in document.get("frames") or []:
+        data_uris.append(frame.get("preview", ""))
+        for layer in frame.get("layers") or []:
+            data_uris.append(layer.get("src", ""))
+
+    for data_uri in data_uris:
+        if "base64," not in data_uri:
+            continue
+        encoded = data_uri.split("base64,", 1)[1]
+        try:
+            image_bytes = base64.b64decode(encoded)
+        except Exception:
+            continue
+        if not image_bytes.startswith(b"\x89PNG") or len(image_bytes) < 24:
+            continue
+        width, height = struct.unpack(">II", image_bytes[16:24])
+        if 1 <= width <= 2048 and 1 <= height <= 2048:
+            return Response(image_bytes, mimetype="image/png")
+
+    abort(404)
 
 
 def create_app():
@@ -134,6 +173,25 @@ def create_app():
         return send_from_directory(
             os.path.abspath(os.path.join(app.root_path, "..")),
             "dice.png",
+        )
+
+    @app.get("/assets/gym-background.png")
+    def gym_background_asset():
+        return send_from_directory(
+            os.path.abspath(os.path.join(app.root_path, "..")),
+            "gym_background.png",
+        )
+
+    @app.get("/assets/gym-equipment/<equipment_id>.png")
+    def gym_equipment_asset(equipment_id):
+        filename = GYM_EQUIPMENT_FILES.get(equipment_id)
+        if not filename:
+            abort(404)
+
+        return pixil_png_response(
+            os.path.abspath(
+                os.path.join(app.root_path, "..", "gym-equipment", filename)
+            )
         )
 
     return app
