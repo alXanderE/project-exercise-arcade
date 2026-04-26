@@ -51,7 +51,7 @@ def create_app():
     app.config["SESSION_DAYS"] = int(os.getenv("SESSION_DAYS", "30"))
     app.config["PRIZE_WHEEL_SPIN_COST"] = int(os.getenv("PRIZE_WHEEL_SPIN_COST", "20"))
     app.config["FITNESS_STEPS_PER_POINT"] = int(
-        os.getenv("FITNESS_STEPS_PER_POINT", "1000")
+        os.getenv("FITNESS_STEPS_PER_POINT", "250")
     )
     app.config["FITNESS_DAILY_STEP_CAP"] = int(
         os.getenv("FITNESS_DAILY_STEP_CAP", "10000")

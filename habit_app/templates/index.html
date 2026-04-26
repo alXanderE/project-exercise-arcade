@@ -1084,8 +1084,8 @@
               <input id="notes" maxlength="255" name="notes" type="text">
             </label>
             <div class="preview-row">
-              <span>Estimated reward</span>
-              <strong id="points-preview">0 points</strong>
+              <span id="points-preview-label">Estimated reward (1 coin per 250 steps)</span>
+              <strong id="points-preview">0 coins</strong>
             </div>
             <button class="primary-button" type="submit">Save Steps</button>
           </form>
@@ -1492,6 +1492,7 @@
         steps: document.getElementById("steps"),
         notes: document.getElementById("notes"),
         pointsPreview: document.getElementById("points-preview"),
+        pointsPreviewLabel: document.getElementById("points-preview-label"),
         coinTotal: document.getElementById("coin-total"),
         coinNote: document.getElementById("coin-note"),
         dailyResetNote: document.getElementById("daily-reset-note"),
@@ -2772,7 +2773,9 @@
 
       function updatePreview() {
         const points = calculatePreview(elements.steps.value);
-        elements.pointsPreview.textContent = `${formatNumber(points)} points`;
+        elements.pointsPreview.textContent = `${formatNumber(points)} coins`;
+        elements.pointsPreviewLabel.textContent =
+          `Estimated reward (1 coin per ${formatNumber(appState.settings.stepsPerPoint)} steps)`;
       }
 
       function resetFitnessForm() {
