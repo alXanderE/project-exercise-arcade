@@ -6,18 +6,21 @@
     <title>Exercise Arcade</title>
     <style>
       :root {
-        --bg: #f4efe6;
-        --panel: #fffaf2;
-        --panel-strong: #fff;
-        --text: #1f2933;
-        --muted: #5c6b73;
-        --accent: #0f766e;
-        --accent-strong: #115e59;
-        --gold: #f59e0b;
-        --gold-soft: #fcd34d;
-        --line: #e7dccb;
-        --danger: #b45309;
-        --good: #15803d;
+        --bg: #101014;
+        --panel: #181425;
+        --panel-strong: #241a32;
+        --text: #fff8d7;
+        --muted: #a7d9ca;
+        --accent: #00d7ff;
+        --accent-strong: #00ff9c;
+        --gold: #ffd23c;
+        --gold-soft: #fff36a;
+        --line: #5fffe0;
+        --danger: #ff3864;
+        --good: #64ff4a;
+        --magenta: #ff4fd8;
+        --ink: #050509;
+        --pixel-shadow: 6px 6px 0 var(--ink);
       }
 
       * {
@@ -26,12 +29,35 @@
 
       body {
         margin: 0;
-        font-family: Georgia, "Times New Roman", serif;
+        min-height: 100vh;
+        font-family: "Courier New", "Lucida Console", monospace;
         background:
-          radial-gradient(circle at top left, rgba(245, 158, 11, 0.18), transparent 28%),
-          radial-gradient(circle at top right, rgba(15, 118, 110, 0.18), transparent 24%),
-          linear-gradient(180deg, #f8f3eb 0%, var(--bg) 100%);
+          linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+          radial-gradient(circle at 16% 10%, rgba(255, 79, 216, 0.28), transparent 22%),
+          radial-gradient(circle at 88% 18%, rgba(0, 215, 255, 0.24), transparent 20%),
+          linear-gradient(135deg, #111014 0%, #151022 42%, #101b19 100%);
+        background-size: 18px 18px, 18px 18px, auto, auto, auto;
         color: var(--text);
+        text-shadow: 2px 2px 0 var(--ink);
+      }
+
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: 10;
+        pointer-events: none;
+        content: "";
+        background:
+          repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.04) 0,
+            rgba(255, 255, 255, 0.04) 1px,
+            transparent 1px,
+            transparent 4px
+          );
+        mix-blend-mode: screen;
+        opacity: 0.35;
       }
 
       button,
@@ -40,6 +66,7 @@
       }
 
       .page {
+        position: relative;
         width: min(1100px, calc(100% - 32px));
         margin: 0 auto;
         padding: 32px 0 40px;
@@ -68,10 +95,12 @@
       .app-panel,
       .metric-card,
       .wheel-result {
-        background: rgba(255, 250, 242, 0.92);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        box-shadow: 0 12px 30px rgba(31, 41, 51, 0.07);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 42%),
+          var(--panel);
+        border: 3px solid var(--line);
+        border-radius: 0;
+        box-shadow: var(--pixel-shadow);
       }
 
       .hero-panel,
@@ -83,15 +112,21 @@
 
       .hero-panel {
         padding: 28px;
+        border-color: var(--magenta);
+        background:
+          linear-gradient(135deg, rgba(255, 79, 216, 0.22), transparent 34%),
+          linear-gradient(180deg, #201735, #151224);
       }
 
       .eyebrow {
         display: inline-block;
         margin-bottom: 12px;
-        color: var(--accent-strong);
-        font-size: 0.85rem;
+        color: var(--gold-soft);
+        font-size: 0.78rem;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.08em;
+        text-shadow: 2px 2px 0 var(--ink);
       }
 
       h1,
@@ -105,10 +140,17 @@
         font-size: clamp(2.1rem, 4vw, 3.8rem);
         line-height: 0.96;
         margin-bottom: 14px;
+        color: #fff;
+        text-transform: uppercase;
+        text-shadow:
+          3px 3px 0 var(--magenta),
+          6px 6px 0 var(--ink);
       }
 
       h2 {
         margin-bottom: 14px;
+        color: var(--gold-soft);
+        text-transform: uppercase;
       }
 
       .hero-copy,
@@ -117,7 +159,7 @@
       .helper-text,
       .history-empty {
         color: var(--muted);
-        line-height: 1.55;
+        line-height: 1.6;
       }
 
       .hero-copy {
@@ -131,12 +173,14 @@
         justify-content: space-between;
         min-height: 100%;
         background:
-          linear-gradient(180deg, rgba(252, 211, 77, 0.22), rgba(255, 250, 242, 0.96)),
-          var(--panel);
+          linear-gradient(180deg, rgba(255, 210, 60, 0.22), rgba(255, 79, 216, 0.08)),
+          #211626;
+        border-color: var(--gold);
       }
 
       .coin-label {
-        color: var(--danger);
+        color: var(--gold-soft);
+        font-weight: 700;
         font-size: 0.9rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
@@ -149,17 +193,19 @@
         font-size: clamp(2.1rem, 5vw, 3.8rem);
         font-weight: 700;
         line-height: 1;
+        color: var(--gold-soft);
       }
 
       .coin-icon {
         width: 54px;
         height: 54px;
-        border-radius: 50%;
+        border: 3px solid #fff0a3;
+        border-radius: 0;
         display: inline-grid;
         place-items: center;
-        background: radial-gradient(circle at 30% 30%, #fde68a, var(--gold));
-        color: #6b3f00;
-        box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.7);
+        background: var(--gold);
+        color: #4a2a00;
+        box-shadow: 4px 4px 0 var(--ink), inset -5px -5px 0 #c98700;
         font-size: 1.4rem;
       }
 
@@ -185,6 +231,8 @@
         min-height: 84px;
         display: grid;
         align-content: space-between;
+        background: #101c23;
+        border-color: var(--accent);
       }
 
       .metric-card span,
@@ -193,12 +241,16 @@
       .task-status,
       .history-date {
         color: var(--muted);
-        font-size: 0.9rem;
+        font-size: 0.82rem;
+        font-weight: 700;
+        text-transform: uppercase;
       }
 
       .metric-card strong {
         font-size: 1.8rem;
         line-height: 1;
+        color: var(--good);
+        text-shadow: 3px 3px 0 var(--ink);
       }
 
       label {
@@ -209,22 +261,25 @@
       input {
         width: 100%;
         min-height: 46px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel-strong);
+        border: 3px solid #6a5f92;
+        border-radius: 0;
+        background: #08090f;
         color: var(--text);
         padding: 0 12px;
+        box-shadow: inset 3px 3px 0 #000;
       }
 
       input:focus {
         border-color: var(--accent);
-        outline: 3px solid rgba(15, 118, 110, 0.18);
+        outline: 3px solid rgba(0, 215, 255, 0.22);
       }
 
       button {
         border: 0;
-        border-radius: 8px;
+        border-radius: 0;
         cursor: pointer;
+        text-transform: uppercase;
+        text-shadow: 2px 2px 0 var(--ink);
       }
 
       .complete-button,
@@ -234,14 +289,29 @@
       .tab-button {
         min-height: 44px;
         padding: 0 16px;
-        transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+        border: 3px solid #fff8d7;
+        box-shadow: 4px 4px 0 var(--ink);
+        line-height: 1.15;
+        transition: transform 80ms ease, opacity 120ms ease, background-color 120ms ease, box-shadow 80ms ease;
       }
 
       .complete-button,
       .primary-button {
-        background: var(--accent);
+        background: #0877ff;
         color: #fff;
         font-weight: 700;
+      }
+
+      .reset-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: auto;
+        min-width: 190px;
+        white-space: nowrap;
+        background: #fff8d7;
+        color: #151224;
+        text-shadow: none;
       }
 
       .complete-button:hover,
@@ -249,24 +319,27 @@
       .primary-button:hover,
       .secondary-button:hover,
       .tab-button:hover {
-        transform: translateY(-1px);
+        transform: translate(2px, 2px);
+        box-shadow: 2px 2px 0 var(--ink);
       }
 
       .complete-button:disabled {
-        background: #93a8a6;
+        background: #56606b;
+        border-color: #8792a0;
         cursor: default;
         transform: none;
+        box-shadow: 3px 3px 0 var(--ink);
       }
 
       .tab-button,
       .secondary-button {
-        background: #f1e4cd;
-        color: #5b4a2e;
+        background: #36224f;
+        color: var(--text);
         font-weight: 700;
       }
 
       .tab-button.is-active {
-        background: var(--accent);
+        background: var(--magenta);
         color: #fff;
       }
 
@@ -292,28 +365,33 @@
       .preview-row {
         min-height: 46px;
         padding: 0 12px;
-        border: 1px dashed var(--line);
-        border-radius: 8px;
-        background: var(--panel-strong);
+        border: 3px dashed var(--accent);
+        border-radius: 0;
+        background: #101c23;
       }
 
       .preview-row strong,
       .history-points {
         color: var(--good);
+        text-shadow: 2px 2px 0 var(--ink);
       }
 
       .progress-track {
-        height: 12px;
+        height: 18px;
         overflow: hidden;
-        border-radius: 999px;
-        background: #eadfce;
+        border: 3px solid var(--line);
+        border-radius: 0;
+        background: #050509;
         margin: 4px 0 10px;
+        box-shadow: inset 3px 3px 0 #000;
       }
 
       .progress-fill {
         width: 0%;
         height: 100%;
-        background: linear-gradient(90deg, var(--accent), var(--gold));
+        background:
+          repeating-linear-gradient(90deg, transparent 0, transparent 10px, rgba(0, 0, 0, 0.24) 10px, rgba(0, 0, 0, 0.24) 14px),
+          linear-gradient(90deg, var(--good), var(--gold), var(--magenta));
         transition: width 180ms ease;
       }
 
@@ -325,7 +403,7 @@
 
       .history-item {
         padding: 10px 0;
-        border-top: 1px solid var(--line);
+        border-top: 2px solid rgba(95, 255, 224, 0.45);
       }
 
       .history-item:first-child {
@@ -365,6 +443,22 @@
         display: grid;
         place-items: center;
         min-height: 260px;
+        background:
+          radial-gradient(circle, rgba(0, 215, 255, 0.18), transparent 62%),
+          #0a0b13;
+        border: 3px solid var(--accent);
+        box-shadow: inset 0 0 0 4px #151224, 5px 5px 0 var(--ink);
+      }
+
+      .wheel-stage::after {
+        position: absolute;
+        width: min(260px, 72vw);
+        aspect-ratio: 1;
+        pointer-events: none;
+        content: "";
+        border: 5px solid var(--gold);
+        border-radius: 50%;
+        box-shadow: 0 0 0 5px var(--ink), 0 0 18px rgba(255, 210, 60, 0.36);
       }
 
       .wheel-pointer {
@@ -376,7 +470,7 @@
         border-left: 18px solid transparent;
         border-right: 18px solid transparent;
         border-top: 30px solid var(--danger);
-        filter: drop-shadow(0 3px 2px rgba(31, 41, 51, 0.22));
+        filter: drop-shadow(4px 4px 0 var(--ink));
       }
 
       .wheel-image {
@@ -384,33 +478,40 @@
         aspect-ratio: 1;
         object-fit: contain;
         border-radius: 50%;
-        box-shadow: 0 12px 30px rgba(31, 41, 51, 0.14);
+        image-rendering: pixelated;
+        box-shadow: none;
         transform: rotate(0deg);
         transition: transform 1800ms cubic-bezier(0.12, 0.72, 0.18, 1);
         transform-origin: 50% 50%;
       }
 
       .wheel-image.is-spinning {
-        filter: drop-shadow(0 10px 20px rgba(31, 41, 51, 0.18));
+        filter: drop-shadow(0 0 14px var(--gold));
       }
 
       .criteria-card {
         display: grid;
-        grid-template-columns: auto 1fr;
-        gap: 10px;
-        align-items: stretch;
-        padding: 10px 10px 10px 8px;
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        background: var(--panel-strong);
+        grid-template-columns: 1fr;
+        gap: 8px;
+        align-items: center;
+        justify-items: center;
+        padding: 10px;
+        border: 3px solid var(--gold);
+        border-radius: 0;
+        background: #fff8d7;
+        box-shadow: 4px 4px 0 var(--ink);
         margin-left: -10px;
         min-height: min(260px, 72vw);
+        overflow: hidden;
       }
 
       .criteria-image {
         width: auto;
+        max-width: 100%;
         height: min(260px, 72vw);
         image-rendering: pixelated;
+        object-fit: contain;
+        background: #fff8d7;
       }
 
       .wheel-copy {
@@ -426,6 +527,8 @@
         box-shadow: none;
         padding: 14px;
         min-height: 74px;
+        background: #08090f;
+        border-color: var(--gold);
       }
 
       .wheel-result span {
@@ -437,6 +540,7 @@
 
       .wheel-result strong {
         font-size: 1.35rem;
+        color: var(--gold-soft);
       }
 
       .wheel-actions {
@@ -450,13 +554,17 @@
         min-height: 48px;
         padding: 0 20px;
         background: var(--gold);
-        color: #5f3700;
+        color: #3b2200;
+        border: 3px solid #fff8d7;
         font-weight: 700;
-        transition: transform 120ms ease, opacity 120ms ease, background-color 120ms ease;
+        box-shadow: 4px 4px 0 var(--ink);
+        text-shadow: none;
+        transition: transform 80ms ease, opacity 120ms ease, background-color 120ms ease, box-shadow 80ms ease;
       }
 
       .spin-button:hover {
-        transform: translateY(-1px);
+        transform: translate(2px, 2px);
+        box-shadow: 2px 2px 0 var(--ink);
       }
 
       .spin-button:disabled {
@@ -483,6 +591,7 @@
 
       .task-toolbar {
         margin-bottom: 18px;
+        border-color: var(--accent-strong);
       }
 
       .custom-workout-form {
@@ -490,7 +599,7 @@
         gap: 12px;
         margin-top: 16px;
         padding-top: 16px;
-        border-top: 1px solid var(--line);
+        border-top: 3px dashed var(--line);
       }
 
       .custom-workout-actions {
@@ -503,6 +612,19 @@
         display: flex;
         flex-direction: column;
         min-height: 260px;
+        position: relative;
+        background:
+          linear-gradient(180deg, rgba(0, 255, 156, 0.08), transparent 48%),
+          #171421;
+        border-color: #8d7aff;
+      }
+
+      .task-card::before {
+        position: absolute;
+        inset: 8px;
+        pointer-events: none;
+        content: "";
+        border: 1px solid rgba(255, 248, 215, 0.18);
       }
 
       .task-top {
@@ -516,11 +638,13 @@
       .task-tag,
       .reward-badge {
         font-size: 0.82rem;
-        border: 1px solid var(--line);
-        border-radius: 999px;
+        border: 2px solid var(--line);
+        border-radius: 0;
         padding: 6px 10px;
-        background: var(--panel-strong);
+        background: #07070d;
         white-space: nowrap;
+        font-weight: 700;
+        text-transform: uppercase;
       }
 
       .task-tag {
@@ -528,13 +652,15 @@
       }
 
       .reward-badge {
-        color: #7c4a03;
-        background: rgba(245, 158, 11, 0.12);
+        color: var(--gold-soft);
+        border-color: var(--gold);
+        background: #301f00;
       }
 
       .task-card h3 {
         font-size: 1.35rem;
         margin-bottom: 10px;
+        color: #fff;
       }
 
       .task-description {
@@ -547,10 +673,10 @@
 
       .tip-panel {
         padding: 20px 22px;
-        background: rgba(255, 250, 242, 0.92);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        box-shadow: 0 12px 30px rgba(31, 41, 51, 0.07);
+        background: #111c18;
+        border: 3px solid var(--accent-strong);
+        border-radius: 0;
+        box-shadow: var(--pixel-shadow);
       }
 
       .tip-panel p {
@@ -562,6 +688,7 @@
         margin: 10px 0 0;
         color: var(--muted);
         font-weight: 700;
+        text-transform: uppercase;
       }
 
       .hidden {
@@ -591,6 +718,11 @@
         .reset-button,
         .secondary-button {
           width: 100%;
+        }
+
+        .reset-button {
+          min-width: 0;
+          white-space: normal;
         }
       }
     </style>
@@ -734,7 +866,7 @@
             <div class="wheel-stage">
               <div class="wheel-pointer" aria-hidden="true"></div>
               <img
-                aria-label="Prize wheel"
+                aria-label="Wheel of Fitness"
                 class="wheel-image"
                 id="prize-wheel-image"
                 role="img"
@@ -813,7 +945,7 @@
             <span>Daily coin reward</span>
             <input
               id="custom-workout-reward"
-              max="50"
+              max="20"
               min="1"
               required
               type="number"
@@ -904,7 +1036,9 @@
       const defaultTaskState = {
         lifetimeCoins: 0,
         completionsByDate: {},
+        completionsByDateByUser: {},
         customTasks: [],
+        customTasksByUser: {},
         localAccounts: [],
         localSessionUserId: null,
         localFitnessLogsByUser: {},
@@ -917,7 +1051,7 @@
         completedTaskIds: [],
         settings: {
           stepsPerPoint: 1000,
-          dailyStepCap: 20000,
+          dailyStepCap: 10000,
           dailyGoalSteps: 10000,
           dailyGoalBonus: 5
         },
@@ -995,9 +1129,19 @@
               parsed.completionsByDate && typeof parsed.completionsByDate === "object"
                 ? parsed.completionsByDate
                 : {},
+            completionsByDateByUser:
+              parsed.completionsByDateByUser &&
+              typeof parsed.completionsByDateByUser === "object"
+                ? parsed.completionsByDateByUser
+                : {},
             customTasks: Array.isArray(parsed.customTasks)
               ? parsed.customTasks
               : [],
+            customTasksByUser:
+              parsed.customTasksByUser &&
+              typeof parsed.customTasksByUser === "object"
+                ? parsed.customTasksByUser
+                : {},
             localAccounts: Array.isArray(parsed.localAccounts)
               ? parsed.localAccounts
               : [],
@@ -1046,8 +1190,8 @@
           .replace(/^-+|-+$/g, "");
       }
 
-      function cleanCustomTasks() {
-        return taskState.customTasks
+      function normalizeCustomTasks(tasks) {
+        return (Array.isArray(tasks) ? tasks : [])
           .filter((task) => task && typeof task === "object")
           .map((task) => ({
             id: String(task.id || ""),
@@ -1055,7 +1199,7 @@
             category: String(task.category || "Custom").trim(),
             description: String(task.description || "").trim(),
             coin_reward: Math.min(
-              50,
+              20,
               Math.max(1, Number.parseInt(task.coin_reward, 10) || 1)
             ),
             difficulty: "custom",
@@ -1063,6 +1207,40 @@
             is_custom: true
           }))
           .filter((task) => task.id && task.title && task.description);
+      }
+
+      function cleanCustomTasks() {
+        return normalizeCustomTasks(taskState.customTasks);
+      }
+
+      function customTasksForUser(user) {
+        const userKey = userStorageKey(user);
+        if (
+          userKey &&
+          taskState.customTasksByUser &&
+          typeof taskState.customTasksByUser[userKey] !== "undefined"
+        ) {
+          return normalizeCustomTasks(taskState.customTasksByUser[userKey]);
+        }
+
+        if (
+          canUseLegacyUserStorage(user) &&
+          Array.isArray(taskState.customTasks) &&
+          taskState.customTasks.length
+        ) {
+          const migratedTasks = cleanCustomTasks();
+          if (!taskState.customTasksByUser || typeof taskState.customTasksByUser !== "object") {
+            taskState.customTasksByUser = {};
+          }
+          if (userKey) {
+            taskState.customTasksByUser[userKey] = migratedTasks;
+          }
+          taskState.customTasks = [];
+          saveTaskState(taskState);
+          return migratedTasks;
+        }
+
+        return [];
       }
 
       function calculateLevel(points) {
@@ -1162,19 +1340,41 @@
         saveTaskState(taskState);
       }
 
-      function currentLocalAccount() {
-        taskState.localAccounts = cleanLocalAccounts();
-        const userId = taskState.localSessionUserId;
-        if (!userId) {
+      function accountStorageKey(account) {
+        if (!account) {
           return null;
         }
 
-        return taskState.localAccounts.find((account) => account.id === userId) || null;
+        if (account.isGuest) {
+          return browserModeUserId;
+        }
+
+        if (String(account.id || "").startsWith("local-")) {
+          return `local:${account.id}`;
+        }
+
+        const email = String(account.email || "").trim().toLowerCase();
+        if (email) {
+          return `server:${email}`;
+        }
+
+        return `server-id:${account.id}`;
+      }
+
+      function currentLocalAccount() {
+        taskState.localAccounts = cleanLocalAccounts();
+        const sessionKey = taskState.localSessionUserId;
+        if (!sessionKey) {
+          return null;
+        }
+
+        return taskState.localAccounts.find((account) => {
+          return accountStorageKey(account) === sessionKey || account.id === sessionKey;
+        }) || null;
       }
 
       function setCurrentLocalAccount(account) {
         taskState.localAccounts = cleanLocalAccounts();
-        const index = taskState.localAccounts.findIndex((item) => item.id === account.id);
         const normalized = {
           ...account,
           email: String(account.email || "").trim().toLowerCase(),
@@ -1184,6 +1384,10 @@
           localMode: Boolean(account.localMode),
           isGuest: Boolean(account.isGuest)
         };
+        const normalizedKey = accountStorageKey(normalized);
+        const index = taskState.localAccounts.findIndex((item) => {
+          return accountStorageKey(item) === normalizedKey;
+        });
 
         if (index >= 0) {
           taskState.localAccounts[index] = normalized;
@@ -1191,7 +1395,7 @@
           taskState.localAccounts.push(normalized);
         }
 
-        taskState.localSessionUserId = normalized.id;
+        taskState.localSessionUserId = normalizedKey;
         persistLocalState();
         appState.user = normalized;
         return normalized;
@@ -1263,18 +1467,84 @@
         });
       }
 
-      function localFitnessLogsForUser(userId) {
-        taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
-        return Array.isArray(taskState.localFitnessLogsByUser[userId])
-          ? [...taskState.localFitnessLogsByUser[userId]]
-          : [];
+      function userStorageKey(user) {
+        if (!user) {
+          return null;
+        }
+
+        if (user.isGuest) {
+          return browserModeUserId;
+        }
+
+        return accountStorageKey(user);
       }
 
-      function localPrizeWheelSpinsForUser(userId) {
+      function legacyUserStorageKey(user) {
+        if (!user || user.id === undefined || user.id === null) {
+          return null;
+        }
+
+        return String(user.id);
+      }
+
+      function canUseLegacyUserStorage(user) {
+        return Boolean(user?.isGuest || String(user?.id || "").startsWith("local-"));
+      }
+
+      function localFitnessLogsForUser(user) {
+        taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
+        const preferredKey = userStorageKey(user);
+        const legacyKey = legacyUserStorageKey(user);
+        const preferredLogs = Array.isArray(taskState.localFitnessLogsByUser[preferredKey])
+          ? [...taskState.localFitnessLogsByUser[preferredKey]]
+          : null;
+
+        if (preferredLogs) {
+          return preferredLogs;
+        }
+
+        if (
+          canUseLegacyUserStorage(user) &&
+          legacyKey &&
+          legacyKey !== preferredKey &&
+          Array.isArray(taskState.localFitnessLogsByUser[legacyKey])
+        ) {
+          const migratedLogs = [...taskState.localFitnessLogsByUser[legacyKey]];
+          taskState.localFitnessLogsByUser[preferredKey] = migratedLogs;
+          delete taskState.localFitnessLogsByUser[legacyKey];
+          persistLocalState();
+          return migratedLogs;
+        }
+
+        return [];
+      }
+
+      function localPrizeWheelSpinsForUser(user) {
         taskState.localPrizeWheelSpinsByUser = cleanLocalPrizeWheelSpins();
-        return Array.isArray(taskState.localPrizeWheelSpinsByUser[userId])
-          ? [...taskState.localPrizeWheelSpinsByUser[userId]]
-          : [];
+        const preferredKey = userStorageKey(user);
+        const legacyKey = legacyUserStorageKey(user);
+        const preferredSpins = Array.isArray(taskState.localPrizeWheelSpinsByUser[preferredKey])
+          ? [...taskState.localPrizeWheelSpinsByUser[preferredKey]]
+          : null;
+
+        if (preferredSpins) {
+          return preferredSpins;
+        }
+
+        if (
+          canUseLegacyUserStorage(user) &&
+          legacyKey &&
+          legacyKey !== preferredKey &&
+          Array.isArray(taskState.localPrizeWheelSpinsByUser[legacyKey])
+        ) {
+          const migratedSpins = [...taskState.localPrizeWheelSpinsByUser[legacyKey]];
+          taskState.localPrizeWheelSpinsByUser[preferredKey] = migratedSpins;
+          delete taskState.localPrizeWheelSpinsByUser[legacyKey];
+          persistLocalState();
+          return migratedSpins;
+        }
+
+        return [];
       }
 
       function updateLocalUserPoints(pointsDelta) {
@@ -1290,7 +1560,7 @@
       }
 
       function localSummaryForUser(user) {
-        const logs = localFitnessLogsForUser(user.id).sort((left, right) => {
+        const logs = localFitnessLogsForUser(user).sort((left, right) => {
           return right.loggedOn.localeCompare(left.loggedOn);
         });
         const today = todayIso();
@@ -1319,7 +1589,7 @@
 
       function localHistoryForUser(user) {
         return {
-          logs: localFitnessLogsForUser(user.id)
+          logs: localFitnessLogsForUser(user)
             .sort((left, right) => right.loggedOn.localeCompare(left.loggedOn))
             .map((log, index) => ({
               id: `${user.id}-${log.loggedOn}-${index}`,
@@ -1340,7 +1610,8 @@
           throw new Error("Log in first to save steps.");
         }
 
-        const logs = localFitnessLogsForUser(currentUser.id);
+        const logs = localFitnessLogsForUser(currentUser);
+        const storageKey = userStorageKey(currentUser);
         const index = logs.findIndex((log) => log.loggedOn === payload.loggedOn);
         const previousSteps = index >= 0 ? logs[index].steps : 0;
         const totalSteps = previousSteps + payload.steps;
@@ -1362,7 +1633,7 @@
         }
 
         taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
-        taskState.localFitnessLogsByUser[currentUser.id] = logs;
+        taskState.localFitnessLogsByUser[storageKey] = logs;
         persistLocalState();
         const user = updateLocalUserPoints(pointsDelta);
 
@@ -1404,10 +1675,11 @@
           createdAt: new Date().toISOString()
         };
 
-        const spins = localPrizeWheelSpinsForUser(currentUser.id);
+        const spins = localPrizeWheelSpinsForUser(currentUser);
+        const storageKey = userStorageKey(currentUser);
         spins.unshift(spin);
         taskState.localPrizeWheelSpinsByUser = cleanLocalPrizeWheelSpins();
-        taskState.localPrizeWheelSpinsByUser[currentUser.id] = spins.slice(0, 20);
+        taskState.localPrizeWheelSpinsByUser[storageKey] = spins.slice(0, 20);
         persistLocalState();
 
         return {
@@ -1423,7 +1695,13 @@
         }
 
         const today = todayIso();
-        const ids = taskState.completionsByDate[today];
+        const userKey = userStorageKey(appState.user);
+        const completionsForUser =
+          userKey && taskState.completionsByDateByUser &&
+          typeof taskState.completionsByDateByUser[userKey] === "object"
+            ? taskState.completionsByDateByUser[userKey]
+            : null;
+        const ids = completionsForUser?.[today];
         return Array.isArray(ids) ? ids : [];
       }
 
@@ -1433,7 +1711,27 @@
           return;
         }
 
-        taskState.completionsByDate[todayIso()] = ids;
+        const userKey = userStorageKey(appState.user);
+        if (!userKey) {
+          return;
+        }
+
+        if (
+          !taskState.completionsByDateByUser ||
+          typeof taskState.completionsByDateByUser !== "object"
+        ) {
+          taskState.completionsByDateByUser = {};
+        }
+
+        const today = todayIso();
+        const existing =
+          typeof taskState.completionsByDateByUser[userKey] === "object"
+            ? taskState.completionsByDateByUser[userKey]
+            : {};
+        taskState.completionsByDateByUser[userKey] = {
+          ...existing,
+          [today]: ids
+        };
       }
 
       function rememberCompletedTask(taskId) {
@@ -1445,6 +1743,18 @@
         const nextCompletedIds = [...completedIds, taskId];
         setCurrentDailyCompletedIds(nextCompletedIds);
         return nextCompletedIds;
+      }
+
+      function activeTasksForCurrentUser() {
+        const seen = new Set();
+        return appState.tasks.filter((task) => {
+          if (!task || !task.id || seen.has(task.id)) {
+            return false;
+          }
+
+          seen.add(task.id);
+          return true;
+        });
       }
 
       function buildTaskCard(task) {
@@ -1496,7 +1806,7 @@
 
         elements.taskGrid.innerHTML = "";
 
-        for (const task of appState.tasks) {
+        for (const task of activeTasksForCurrentUser()) {
           const taskCard = buildTaskCard(task);
           const button = taskCard.querySelector(".complete-button");
           button.addEventListener("click", () => completeDailyTask(task, taskCard));
@@ -1525,7 +1835,7 @@
         const category = elements.customWorkoutCategory.value.trim();
         const description = elements.customWorkoutDescription.value.trim();
         const reward = Math.min(
-          50,
+          20,
           Math.max(1, Number.parseInt(elements.customWorkoutReward.value, 10) || 1)
         );
 
@@ -1546,8 +1856,19 @@
           is_custom: true
         };
 
-        taskState.customTasks = cleanCustomTasks();
-        taskState.customTasks.push(customTask);
+        const userKey = userStorageKey(appState.user);
+        if (!userKey) {
+          setMessage("Choose an account before saving a custom workout.", true);
+          return;
+        }
+
+        if (!taskState.customTasksByUser || typeof taskState.customTasksByUser !== "object") {
+          taskState.customTasksByUser = {};
+        }
+
+        const userTasks = customTasksForUser(appState.user);
+        userTasks.push(customTask);
+        taskState.customTasksByUser[userKey] = userTasks;
         saveTaskState(taskState);
         appState.tasks.push(customTask);
         renderTaskCards();
@@ -1627,11 +1948,23 @@
         elements.pointsPreview.textContent = `${formatNumber(points)} points`;
       }
 
+      function resetFitnessForm() {
+        elements.loggedOn.value = todayIso();
+        elements.steps.value = "";
+        elements.notes.value = "";
+        updatePreview();
+      }
+
       function updateLocalCoinDisplay() {
-        const completedToday = currentDailyCompletedIds().length;
-        const taskCount = appState.tasks.length;
-        const dailyCoins = currentDailyCompletedIds().reduce((sum, taskId) => {
-          const task = appState.tasks.find((item) => item.id === taskId);
+        const activeTasks = activeTasksForCurrentUser();
+        const activeTaskIds = new Set(activeTasks.map((task) => task.id));
+        const completedVisibleTaskIds = currentDailyCompletedIds().filter((taskId) => {
+          return activeTaskIds.has(taskId);
+        });
+        const completedToday = completedVisibleTaskIds.length;
+        const taskCount = activeTasks.length;
+        const dailyCoins = completedVisibleTaskIds.reduce((sum, taskId) => {
+          const task = activeTasks.find((item) => item.id === taskId);
           return sum + (task ? task.coin_reward : 0);
         }, 0);
 
@@ -1842,7 +2175,7 @@
             updatePrizeWheelControls();
             if (appState.user?.localMode) {
               updateSpinHistory({
-                spins: localPrizeWheelSpinsForUser(appState.user.id)
+                spins: localPrizeWheelSpinsForUser(appState.user)
               });
             } else {
               updateSpinHistory(await apiFetch("/api/arcade/prize-wheel/history"));
@@ -1900,6 +2233,7 @@
 
       function showAuthedShell(user) {
         updateCoinDisplay(user);
+        resetFitnessForm();
         elements.levelCount.textContent = formatNumber(user?.level || 1);
         elements.todaySteps.textContent = "0";
         elements.todayEarned.textContent = "0";
@@ -1922,10 +2256,11 @@
         const browserUser = ensureBrowserModeAccount();
         appState.prizeWheel.slices = fallbackPrizeWheelSlices;
         appState.completedTaskIds = [];
+        resetFitnessForm();
         updateSummary(localSummaryForUser(browserUser));
         updateHistory(localHistoryForUser(browserUser));
         updateSpinHistory({
-          spins: localPrizeWheelSpinsForUser(browserUser.id)
+          spins: localPrizeWheelSpinsForUser(browserUser)
         });
         updateTaskCards();
         showAuthed();
@@ -1938,7 +2273,7 @@
           updateHistory(localHistoryForUser(appState.user));
           renderCriteriaList();
           updateSpinHistory({
-            spins: localPrizeWheelSpinsForUser(appState.user.id)
+            spins: localPrizeWheelSpinsForUser(appState.user)
           });
           updateTaskCards();
           showAuthed();
@@ -1976,6 +2311,7 @@
               password: localUser.password,
               localMode: false
             });
+            await applyTasksForCurrentUser();
             await refreshFitness();
             return;
           } catch {
@@ -1984,6 +2320,7 @@
               localMode: true
             };
             setCurrentLocalAccount(offlineUser);
+            await applyTasksForCurrentUser();
             showAuthedShell(offlineUser);
             await refreshFitness();
             return;
@@ -2010,11 +2347,16 @@
           serverTasks = fallbackDailyTasks;
         }
 
-        taskState.customTasks = cleanCustomTasks();
-        appState.tasks = [...serverTasks, ...taskState.customTasks];
+        const userCustomTasks = customTasksForUser(appState.user);
+        appState.tasks = [...serverTasks, ...userCustomTasks];
         saveTaskState(taskState);
         renderTaskCards();
         updateLocalCoinDisplay();
+      }
+
+      async function applyTasksForCurrentUser() {
+        await loadDailyTasks();
+        updateTaskCards();
       }
 
       async function handleAuth(event) {
@@ -2047,6 +2389,7 @@
               password,
               localMode: false
             });
+            await applyTasksForCurrentUser();
             elements.password.value = "";
             showAuthedShell(result.user);
             setMessage("");
@@ -2063,6 +2406,7 @@
           } catch (error) {
             try {
               const localUser = createLocalAccount(email, displayName, password);
+              await applyTasksForCurrentUser();
               elements.password.value = "";
               showAuthedShell(localUser);
               await refreshFitness();
@@ -2088,6 +2432,7 @@
             password: elements.password.value,
             localMode: false
           });
+          await applyTasksForCurrentUser();
           elements.password.value = "";
           showAuthedShell(result.user);
           setMessage("");
@@ -2116,6 +2461,7 @@
             ...localUser,
             localMode: true
           });
+          await applyTasksForCurrentUser();
           elements.password.value = "";
           showAuthedShell({
             ...localUser,
@@ -2163,7 +2509,19 @@
       }
 
       elements.resetProgress.addEventListener("click", () => {
-        delete taskState.completionsByDate[todayIso()];
+        if (appState.user?.localMode) {
+          const userKey = userStorageKey(appState.user);
+          const today = todayIso();
+          if (
+            userKey &&
+            taskState.completionsByDateByUser &&
+            typeof taskState.completionsByDateByUser[userKey] === "object"
+          ) {
+            delete taskState.completionsByDateByUser[userKey][today];
+          }
+        } else {
+          delete taskState.completionsByDate[todayIso()];
+        }
         saveTaskState(taskState);
         updateTaskCards();
         updateLocalCoinDisplay();
