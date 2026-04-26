@@ -8,6 +8,7 @@ This repo now contains a basic Flask starter for an exercise habit gamification 
 - Server-side daily task definitions in `habit_app/daily_tasks.py`
 - Flask app factory setup
 - SQLite database via Flask-SQLAlchemy
+- Optional MongoDB Atlas-backed auth storage for accounts
 - Cookie-based session auth
 - User signup, login, logout, and session routes
 - Habit creation and completion logging
@@ -33,6 +34,19 @@ workouts from the front end; those are saved in their browser.
 On Vercel, if `DATABASE_URL` is not set, the app falls back to
 `sqlite:////tmp/exercise_arcade.db` so the function can boot. For persistent user
 accounts and points in production, set `DATABASE_URL` to a real hosted database.
+
+If you want account credentials stored in MongoDB Atlas, add these environment
+variables in Vercel:
+
+```bash
+MONGODB_URI=mongodb+srv://<username>:<password>@exercise-haven.xxxxx.mongodb.net/?retryWrites=true&w=majority&appName=exercise-haven
+MONGODB_DB=exercise_arcade
+MONGODB_USERS_COLLECTION=users
+```
+
+With `MONGODB_URI` configured, signup and login use MongoDB for account records
+while the existing SQL database continues to hold gameplay data such as points,
+fitness logs, daily task completions, and prize wheel history.
 
 ## API routes
 

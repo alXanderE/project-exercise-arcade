@@ -4,10 +4,24 @@ from functools import wraps
 
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import func, or_
+try:
+    from pymongo.errors import DuplicateKeyError
+except ModuleNotFoundError:  # pragma: no cover - depends on installed extras
+    class DuplicateKeyError(Exception):
+        pass
 
 from .auth import build_session, hash_password, verify_password
 from .daily_tasks import all_daily_tasks, find_daily_task
 from .extensions import db
+from .mongo_auth import (
+    create_auth_user,
+    find_auth_user_by_display_name,
+    find_auth_user_by_email,
+    find_auth_user_by_identifier,
+    mongo_auth_enabled,
+    mongo_auth_unavailable_reason,
+    update_auth_user,
+)
 from .models import (
     FitnessLog,
     Habit,
@@ -115,6 +129,32 @@ def serialize_user(user):
         "points": user.points,
         "level": user.level,
     }
+
+
+def sync_sql_user_from_auth_document(auth_user):
+    sql_user_id = auth_user.get("sql_user_id")
+    user = User.query.get(sql_user_id) if sql_user_id else None
+    if not user:
+        user = User.query.filter_by(email=auth_user["email"]).first()
+
+    if not user:
+        user = User(
+            email=auth_user["email"],
+            display_name=auth_user["display_name"],
+            password_hash=auth_user["password_hash"],
+        )
+        db.session.add(user)
+        db.session.commit()
+    else:
+        user.email = auth_user["email"]
+        user.display_name = auth_user["display_name"]
+        user.password_hash = auth_user["password_hash"]
+        db.session.commit()
+
+    if auth_user.get("sql_user_id") != user.id and mongo_auth_enabled():
+        update_auth_user(auth_user["email"], sql_user_id=user.id)
+
+    return user
 
 
 def serialize_habit(habit):
@@ -667,23 +707,50 @@ def signup():
             400,
         )
 
-    existing_user = User.query.filter_by(email=email).first()
-    if existing_user:
-        return jsonify({"message": "An account with that email already exists."}), 400
+    if current_app.config.get("MONGODB_URI") and not mongo_auth_enabled():
+        return jsonify({"message": mongo_auth_unavailable_reason()}), 500
 
-    existing_display_name = User.query.filter(
-        func.lower(User.display_name) == display_name.lower()
-    ).first()
-    if existing_display_name:
-        return jsonify({"message": "That display name is already taken."}), 400
+    if mongo_auth_enabled():
+        if find_auth_user_by_email(email):
+            return jsonify({"message": "An account with that email already exists."}), 400
+        if find_auth_user_by_display_name(display_name):
+            return jsonify({"message": "That display name is already taken."}), 400
+    else:
+        existing_user = User.query.filter_by(email=email).first()
+        if existing_user:
+            return jsonify({"message": "An account with that email already exists."}), 400
 
+        existing_display_name = User.query.filter(
+            func.lower(User.display_name) == display_name.lower()
+        ).first()
+        if existing_display_name:
+            return jsonify({"message": "That display name is already taken."}), 400
+
+    password_hash = hash_password(password)
     user = User(
         email=email,
         display_name=display_name,
-        password_hash=hash_password(password),
+        password_hash=password_hash,
     )
     db.session.add(user)
-    db.session.commit()
+
+    try:
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
+    if mongo_auth_enabled():
+        try:
+            create_auth_user(email, display_name, password_hash, user.id)
+        except DuplicateKeyError:
+            db.session.delete(user)
+            db.session.commit()
+            return jsonify({"message": "That account already exists in MongoDB."}), 400
+        except Exception:
+            db.session.delete(user)
+            db.session.commit()
+            raise
 
     response = jsonify({"message": "Account created.", "user": serialize_user(user)})
     login_user(response, user)
@@ -697,14 +764,42 @@ def login():
     password = payload.get("password") or ""
 
     normalized_identifier = identifier.lower()
-    user = User.query.filter(
-        or_(
-            User.email == normalized_identifier,
-            func.lower(User.display_name) == normalized_identifier,
-        )
-    ).first()
-    if not user or not verify_password(password, user.password_hash):
-        return jsonify({"message": "Invalid email, display name, or password."}), 401
+
+    if current_app.config.get("MONGODB_URI") and not mongo_auth_enabled():
+        return jsonify({"message": mongo_auth_unavailable_reason()}), 500
+
+    user = None
+    auth_user = find_auth_user_by_identifier(normalized_identifier)
+    if auth_user:
+        if not verify_password(password, auth_user["password_hash"]):
+            return jsonify({"message": "Invalid email, display name, or password."}), 401
+        user = sync_sql_user_from_auth_document(auth_user)
+    else:
+        user = User.query.filter(
+            or_(
+                User.email == normalized_identifier,
+                func.lower(User.display_name) == normalized_identifier,
+            )
+        ).first()
+        if not user or not verify_password(password, user.password_hash):
+            return jsonify({"message": "Invalid email, display name, or password."}), 401
+
+        if mongo_auth_enabled():
+            existing_auth_user = find_auth_user_by_email(user.email)
+            if existing_auth_user:
+                update_auth_user(
+                    user.email,
+                    display_name=user.display_name,
+                    password_hash=user.password_hash,
+                    sql_user_id=user.id,
+                )
+            else:
+                create_auth_user(
+                    user.email,
+                    user.display_name,
+                    user.password_hash,
+                    user.id,
+                )
 
     response = jsonify({"message": "Logged in.", "user": serialize_user(user)})
     login_user(response, user)

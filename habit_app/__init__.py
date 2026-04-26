@@ -3,6 +3,7 @@ import os
 from flask import Flask, render_template, send_from_directory
 
 from .extensions import db
+from .mongo_auth import ensure_mongo_auth_indexes
 from .routes import api
 from .schema import ensure_sqlite_schema
 
@@ -35,6 +36,12 @@ def create_app():
     app.config["DEBUG"] = os.getenv("FLASK_DEBUG", "true").lower() == "true"
     app.config["SQLALCHEMY_DATABASE_URI"] = default_database_url()
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["MONGODB_URI"] = os.getenv("MONGODB_URI", "").strip()
+    app.config["MONGODB_DB"] = os.getenv("MONGODB_DB", "exercise_arcade")
+    app.config["MONGODB_USERS_COLLECTION"] = os.getenv(
+        "MONGODB_USERS_COLLECTION",
+        "users",
+    )
     app.config["SESSION_COOKIE_NAME"] = os.getenv(
         "SESSION_COOKIE_NAME",
         "exercise_arcade_session",
@@ -61,6 +68,7 @@ def create_app():
 
         db.create_all()
         ensure_sqlite_schema()
+        ensure_mongo_auth_indexes()
 
     app.register_blueprint(api, url_prefix="/api")
 
