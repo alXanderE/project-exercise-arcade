@@ -1263,18 +1263,87 @@
         });
       }
 
-      function localFitnessLogsForUser(userId) {
-        taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
-        return Array.isArray(taskState.localFitnessLogsByUser[userId])
-          ? [...taskState.localFitnessLogsByUser[userId]]
-          : [];
+      function userStorageKey(user) {
+        if (!user) {
+          return null;
+        }
+
+        if (user.isGuest) {
+          return browserModeUserId;
+        }
+
+        if (user.localMode) {
+          return `local:${user.id}`;
+        }
+
+        const email = String(user.email || "").trim().toLowerCase();
+        if (email) {
+          return `server:${email}`;
+        }
+
+        return `server-id:${user.id}`;
       }
 
-      function localPrizeWheelSpinsForUser(userId) {
+      function legacyUserStorageKey(user) {
+        if (!user || user.id === undefined || user.id === null) {
+          return null;
+        }
+
+        return String(user.id);
+      }
+
+      function localFitnessLogsForUser(user) {
+        taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
+        const preferredKey = userStorageKey(user);
+        const legacyKey = legacyUserStorageKey(user);
+        const preferredLogs = Array.isArray(taskState.localFitnessLogsByUser[preferredKey])
+          ? [...taskState.localFitnessLogsByUser[preferredKey]]
+          : null;
+
+        if (preferredLogs) {
+          return preferredLogs;
+        }
+
+        if (
+          legacyKey &&
+          legacyKey !== preferredKey &&
+          Array.isArray(taskState.localFitnessLogsByUser[legacyKey])
+        ) {
+          const migratedLogs = [...taskState.localFitnessLogsByUser[legacyKey]];
+          taskState.localFitnessLogsByUser[preferredKey] = migratedLogs;
+          delete taskState.localFitnessLogsByUser[legacyKey];
+          persistLocalState();
+          return migratedLogs;
+        }
+
+        return [];
+      }
+
+      function localPrizeWheelSpinsForUser(user) {
         taskState.localPrizeWheelSpinsByUser = cleanLocalPrizeWheelSpins();
-        return Array.isArray(taskState.localPrizeWheelSpinsByUser[userId])
-          ? [...taskState.localPrizeWheelSpinsByUser[userId]]
-          : [];
+        const preferredKey = userStorageKey(user);
+        const legacyKey = legacyUserStorageKey(user);
+        const preferredSpins = Array.isArray(taskState.localPrizeWheelSpinsByUser[preferredKey])
+          ? [...taskState.localPrizeWheelSpinsByUser[preferredKey]]
+          : null;
+
+        if (preferredSpins) {
+          return preferredSpins;
+        }
+
+        if (
+          legacyKey &&
+          legacyKey !== preferredKey &&
+          Array.isArray(taskState.localPrizeWheelSpinsByUser[legacyKey])
+        ) {
+          const migratedSpins = [...taskState.localPrizeWheelSpinsByUser[legacyKey]];
+          taskState.localPrizeWheelSpinsByUser[preferredKey] = migratedSpins;
+          delete taskState.localPrizeWheelSpinsByUser[legacyKey];
+          persistLocalState();
+          return migratedSpins;
+        }
+
+        return [];
       }
 
       function updateLocalUserPoints(pointsDelta) {
@@ -1290,7 +1359,7 @@
       }
 
       function localSummaryForUser(user) {
-        const logs = localFitnessLogsForUser(user.id).sort((left, right) => {
+        const logs = localFitnessLogsForUser(user).sort((left, right) => {
           return right.loggedOn.localeCompare(left.loggedOn);
         });
         const today = todayIso();
@@ -1319,7 +1388,7 @@
 
       function localHistoryForUser(user) {
         return {
-          logs: localFitnessLogsForUser(user.id)
+          logs: localFitnessLogsForUser(user)
             .sort((left, right) => right.loggedOn.localeCompare(left.loggedOn))
             .map((log, index) => ({
               id: `${user.id}-${log.loggedOn}-${index}`,
@@ -1340,7 +1409,8 @@
           throw new Error("Log in first to save steps.");
         }
 
-        const logs = localFitnessLogsForUser(currentUser.id);
+        const logs = localFitnessLogsForUser(currentUser);
+        const storageKey = userStorageKey(currentUser);
         const index = logs.findIndex((log) => log.loggedOn === payload.loggedOn);
         const previousSteps = index >= 0 ? logs[index].steps : 0;
         const totalSteps = previousSteps + payload.steps;
@@ -1362,7 +1432,7 @@
         }
 
         taskState.localFitnessLogsByUser = cleanLocalFitnessLogs();
-        taskState.localFitnessLogsByUser[currentUser.id] = logs;
+        taskState.localFitnessLogsByUser[storageKey] = logs;
         persistLocalState();
         const user = updateLocalUserPoints(pointsDelta);
 
@@ -1404,10 +1474,11 @@
           createdAt: new Date().toISOString()
         };
 
-        const spins = localPrizeWheelSpinsForUser(currentUser.id);
+        const spins = localPrizeWheelSpinsForUser(currentUser);
+        const storageKey = userStorageKey(currentUser);
         spins.unshift(spin);
         taskState.localPrizeWheelSpinsByUser = cleanLocalPrizeWheelSpins();
-        taskState.localPrizeWheelSpinsByUser[currentUser.id] = spins.slice(0, 20);
+        taskState.localPrizeWheelSpinsByUser[storageKey] = spins.slice(0, 20);
         persistLocalState();
 
         return {
@@ -1627,6 +1698,13 @@
         elements.pointsPreview.textContent = `${formatNumber(points)} points`;
       }
 
+      function resetFitnessForm() {
+        elements.loggedOn.value = todayIso();
+        elements.steps.value = "";
+        elements.notes.value = "";
+        updatePreview();
+      }
+
       function updateLocalCoinDisplay() {
         const completedToday = currentDailyCompletedIds().length;
         const taskCount = appState.tasks.length;
@@ -1842,7 +1920,7 @@
             updatePrizeWheelControls();
             if (appState.user?.localMode) {
               updateSpinHistory({
-                spins: localPrizeWheelSpinsForUser(appState.user.id)
+                spins: localPrizeWheelSpinsForUser(appState.user)
               });
             } else {
               updateSpinHistory(await apiFetch("/api/arcade/prize-wheel/history"));
@@ -1900,6 +1978,7 @@
 
       function showAuthedShell(user) {
         updateCoinDisplay(user);
+        resetFitnessForm();
         elements.levelCount.textContent = formatNumber(user?.level || 1);
         elements.todaySteps.textContent = "0";
         elements.todayEarned.textContent = "0";
@@ -1922,10 +2001,11 @@
         const browserUser = ensureBrowserModeAccount();
         appState.prizeWheel.slices = fallbackPrizeWheelSlices;
         appState.completedTaskIds = [];
+        resetFitnessForm();
         updateSummary(localSummaryForUser(browserUser));
         updateHistory(localHistoryForUser(browserUser));
         updateSpinHistory({
-          spins: localPrizeWheelSpinsForUser(browserUser.id)
+          spins: localPrizeWheelSpinsForUser(browserUser)
         });
         updateTaskCards();
         showAuthed();
@@ -1938,7 +2018,7 @@
           updateHistory(localHistoryForUser(appState.user));
           renderCriteriaList();
           updateSpinHistory({
-            spins: localPrizeWheelSpinsForUser(appState.user.id)
+            spins: localPrizeWheelSpinsForUser(appState.user)
           });
           updateTaskCards();
           showAuthed();
