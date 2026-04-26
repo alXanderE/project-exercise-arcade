@@ -37,6 +37,7 @@ from .mongo_game import (
     record_prize_wheel_spin,
     save_fitness_steps as save_fitness_steps_mongo,
     sync_sql_user_points,
+    update_user_account_state,
 )
 from .models import (
     FitnessLog,
@@ -119,6 +120,10 @@ DEFAULT_PRIZE_WHEEL_SLICES = [
     }
     for display_order in range(16)
 ]
+
+CARD_SUITS = ["S", "H", "D", "C"]
+CARD_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
+BLACKJACK_HANDS = {}
 
 
 def wheel_rule_for_display_order(display_order):
@@ -427,6 +432,133 @@ def choose_weighted_slice(slices):
 
     winning_index = secrets.SystemRandom().randrange(len(slices))
     return slices[winning_index]
+
+
+def parse_positive_int(value, field_name, *, minimum=1, maximum=None):
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} must be a whole number.")
+
+    if number < minimum:
+        raise ValueError(f"{field_name} must be at least {minimum}.")
+
+    if maximum is not None and number > maximum:
+        raise ValueError(f"{field_name} must be no more than {maximum}.")
+
+    return number
+
+
+def set_user_points(user, points):
+    user.points = max(0, int(points))
+    user.level = calculate_level(user.points)
+
+    if mongo_game_enabled():
+        update_user_account_state(user, points=user.points, level=user.level)
+    else:
+        db.session.commit()
+
+
+def apply_point_delta(user, points_delta):
+    set_user_points(user, user.points + int(points_delta))
+    return user
+
+
+def build_deck():
+    deck = [
+        {"rank": rank, "suit": suit}
+        for suit in CARD_SUITS
+        for rank in CARD_RANKS
+    ]
+    secrets.SystemRandom().shuffle(deck)
+    return deck
+
+
+def blackjack_card_value(card):
+    rank = card["rank"]
+    if rank == "A":
+        return 11
+    if rank in {"J", "Q", "K"}:
+        return 10
+    return int(rank)
+
+
+def blackjack_hand_value(hand):
+    total = sum(blackjack_card_value(card) for card in hand)
+    aces = sum(1 for card in hand if card["rank"] == "A")
+
+    while total > 21 and aces:
+        total -= 10
+        aces -= 1
+
+    return total
+
+
+def serialize_blackjack_card(card):
+    suit_symbols = {"S": "spades", "H": "hearts", "D": "diamonds", "C": "clubs"}
+    return {
+        "rank": card["rank"],
+        "suit": card["suit"],
+        "label": f"{card['rank']} of {suit_symbols.get(card['suit'], card['suit'])}",
+    }
+
+
+def serialize_blackjack_state(state, user, *, reveal_dealer=False, message=None):
+    dealer_cards = state["dealer"]
+    visible_dealer = dealer_cards if reveal_dealer else dealer_cards[:1]
+    dealer_total = blackjack_hand_value(dealer_cards) if reveal_dealer else None
+    player_total = blackjack_hand_value(state["player"])
+
+    return {
+        "bet": state["bet"],
+        "playerCards": [serialize_blackjack_card(card) for card in state["player"]],
+        "dealerCards": [serialize_blackjack_card(card) for card in visible_dealer],
+        "dealerHiddenCount": max(0, len(dealer_cards) - len(visible_dealer)),
+        "playerTotal": player_total,
+        "dealerTotal": dealer_total,
+        "status": state["status"],
+        "outcome": state.get("outcome"),
+        "payout": state.get("payout", 0),
+        "net": state.get("net", -state["bet"]),
+        "message": message or state.get("message", ""),
+        "user": serialize_user(user),
+    }
+
+
+def blackjack_user_key(user):
+    return str(user.email or user.id).strip().lower()
+
+
+def save_blackjack_state(user, state):
+    BLACKJACK_HANDS[blackjack_user_key(user)] = state
+
+
+def clear_blackjack_state(user):
+    BLACKJACK_HANDS.pop(blackjack_user_key(user), None)
+
+
+def finalize_blackjack_hand(user, state, outcome, payout, message):
+    state["status"] = "finished"
+    state["outcome"] = outcome
+    state["payout"] = payout
+    state["net"] = payout - state["bet"]
+    state["message"] = message
+    apply_point_delta(user, payout)
+    clear_blackjack_state(user)
+    return serialize_blackjack_state(state, user, reveal_dealer=True, message=message)
+
+
+def active_blackjack_state(user):
+    state = BLACKJACK_HANDS.get(blackjack_user_key(user))
+    if not state or state.get("status") != "playing":
+        return None
+    return state
+
+
+def draw_blackjack_card(state):
+    if not state["deck"]:
+        state["deck"] = build_deck()
+    return state["deck"].pop()
 
 
 def apply_prize_wheel_reward(user, spin):
@@ -827,6 +959,229 @@ def prize_wheel_history(user):
         {
             "spins": [serialize_prize_wheel_spin(spin) for spin in spins],
             "prizes": [serialize_user_prize(prize) for prize in prizes],
+        }
+    )
+
+
+@api.post("/arcade/blackjack/start")
+@require_auth
+def start_blackjack(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+
+    payload = request.get_json(silent=True) or {}
+    try:
+        bet = parse_positive_int(payload.get("bet"), "Bet")
+    except ValueError as error:
+        return jsonify({"message": str(error)}), 400
+
+    if user.points < bet:
+        return jsonify({"message": "Not enough coins for that blackjack bet.", "user": serialize_user(user)}), 400
+
+    deck = build_deck()
+    state = {
+        "bet": bet,
+        "deck": deck,
+        "player": [deck.pop(), deck.pop()],
+        "dealer": [deck.pop(), deck.pop()],
+        "status": "playing",
+        "outcome": None,
+        "payout": 0,
+        "net": -bet,
+    }
+    apply_point_delta(user, -bet)
+
+    player_total = blackjack_hand_value(state["player"])
+    dealer_total = blackjack_hand_value(state["dealer"])
+    if player_total == 21 or dealer_total == 21:
+        if player_total == 21 and dealer_total == 21:
+            result = finalize_blackjack_hand(
+                user,
+                state,
+                "push",
+                bet,
+                "Both hands hit 21. Your bet was returned.",
+            )
+        elif player_total == 21:
+            result = finalize_blackjack_hand(
+                user,
+                state,
+                "blackjack",
+                bet * 3,
+                "Blackjack! You beat the dealer.",
+            )
+        else:
+            result = finalize_blackjack_hand(
+                user,
+                state,
+                "dealer_blackjack",
+                0,
+                "Dealer has 21.",
+            )
+        return jsonify(result)
+
+    save_blackjack_state(user, state)
+    return jsonify(serialize_blackjack_state(state, user, message="Hit or stand."))
+
+
+@api.post("/arcade/blackjack/hit")
+@require_auth
+def hit_blackjack(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+
+    state = active_blackjack_state(user)
+    if not state:
+        return jsonify({"message": "Start a blackjack hand first.", "user": serialize_user(user)}), 400
+
+    state["player"].append(draw_blackjack_card(state))
+    player_total = blackjack_hand_value(state["player"])
+    if player_total > 21:
+        return jsonify(
+            finalize_blackjack_hand(
+                user,
+                state,
+                "bust",
+                0,
+                "You busted. Dealer wins this hand.",
+            )
+        )
+
+    save_blackjack_state(user, state)
+    return jsonify(serialize_blackjack_state(state, user, message="Card dealt."))
+
+
+@api.post("/arcade/blackjack/stand")
+@require_auth
+def stand_blackjack(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+
+    state = active_blackjack_state(user)
+    if not state:
+        return jsonify({"message": "Start a blackjack hand first.", "user": serialize_user(user)}), 400
+
+    while blackjack_hand_value(state["dealer"]) < 17:
+        state["dealer"].append(draw_blackjack_card(state))
+
+    player_total = blackjack_hand_value(state["player"])
+    dealer_total = blackjack_hand_value(state["dealer"])
+
+    if dealer_total > 21:
+        outcome = "dealer_bust"
+        payout = state["bet"] * 2
+        message = "Dealer busted. You win."
+    elif player_total > dealer_total:
+        outcome = "win"
+        payout = state["bet"] * 2
+        message = "You beat the dealer."
+    elif player_total == dealer_total:
+        outcome = "push"
+        payout = state["bet"]
+        message = "Push. Your bet was returned."
+    else:
+        outcome = "lose"
+        payout = 0
+        message = "Dealer wins this hand."
+
+    return jsonify(finalize_blackjack_hand(user, state, outcome, payout, message))
+
+
+@api.post("/arcade/dice/roll")
+@require_auth
+def roll_dice_game(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+
+    payload = request.get_json(silent=True) or {}
+    bets = []
+
+    def add_bet(kind, amount_field, value_field=None, *, minimum=1, maximum=None):
+        raw_amount = payload.get(amount_field)
+        try:
+            amount = int(raw_amount or 0)
+        except (TypeError, ValueError):
+            raise ValueError(f"{amount_field} must be a whole number.")
+        if amount < 0:
+            raise ValueError(f"{amount_field} cannot be negative.")
+        if amount <= 0:
+            return
+        value = None
+        if value_field:
+            value = parse_positive_int(
+                payload.get(value_field),
+                value_field,
+                minimum=minimum,
+                maximum=maximum,
+            )
+        bets.append({"kind": kind, "amount": amount, "value": value})
+
+    try:
+        add_bet("die_one", "dieOneBet", "dieOneNumber", minimum=1, maximum=6)
+        add_bet("die_two", "dieTwoBet", "dieTwoNumber", minimum=1, maximum=6)
+        add_bet("total", "totalBet", "totalNumber", minimum=2, maximum=12)
+        try:
+            parity_amount = int(payload.get("parityBet") or 0)
+        except (TypeError, ValueError):
+            raise ValueError("parityBet must be a whole number.")
+        if parity_amount < 0:
+            raise ValueError("parityBet cannot be negative.")
+        if parity_amount > 0:
+            parity = str(payload.get("parityChoice") or "").lower()
+            if parity not in {"odd", "even"}:
+                raise ValueError("Choose odd or even for the total.")
+            bets.append({"kind": "parity", "amount": parity_amount, "value": parity})
+    except ValueError as error:
+        return jsonify({"message": str(error)}), 400
+
+    if not bets:
+        return jsonify({"message": "Place at least one dice bet."}), 400
+
+    total_wager = sum(bet["amount"] for bet in bets)
+    if any(bet["amount"] < 1 for bet in bets):
+        return jsonify({"message": "Each dice bet must be at least 1 coin."}), 400
+
+    if user.points < total_wager:
+        return jsonify({"message": "Not enough coins for those dice bets.", "user": serialize_user(user)}), 400
+
+    die_one = secrets.SystemRandom().randint(1, 6)
+    die_two = secrets.SystemRandom().randint(1, 6)
+    total = die_one + die_two
+    parity = "even" if total % 2 == 0 else "odd"
+    results = []
+    winnings = 0
+
+    for bet in bets:
+        won = False
+        multiplier = 0
+        if bet["kind"] == "die_one":
+            won = die_one == bet["value"]
+            multiplier = 6
+        elif bet["kind"] == "die_two":
+            won = die_two == bet["value"]
+            multiplier = 6
+        elif bet["kind"] == "total":
+            won = total == bet["value"]
+            multiplier = 10
+        elif bet["kind"] == "parity":
+            won = parity == bet["value"]
+            multiplier = 2
+
+        payout = bet["amount"] * multiplier if won else 0
+        winnings += payout
+        results.append({**bet, "won": won, "payout": payout})
+
+    apply_point_delta(user, -total_wager + winnings)
+
+    return jsonify(
+        {
+            "message": "Dice rolled.",
+            "roll": {"dieOne": die_one, "dieTwo": die_two, "total": total, "parity": parity},
+            "bets": results,
+            "totalWager": total_wager,
+            "winnings": winnings,
+            "net": winnings - total_wager,
+            "user": serialize_user(user),
         }
     )
 

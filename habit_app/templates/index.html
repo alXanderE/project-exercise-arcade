@@ -424,6 +424,21 @@
         margin-bottom: 18px;
       }
 
+      .arcade-tabs {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .arcade-game-panel {
+        display: none;
+      }
+
+      .arcade-game-panel.is-active {
+        display: block;
+      }
+
       .wheel-layout {
         display: grid;
         grid-template-columns: minmax(320px, 1.08fr) 0.92fr;
@@ -582,6 +597,237 @@
         border-top: 1px solid var(--line);
       }
 
+      .game-layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 0.95fr) minmax(320px, 1.05fr);
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .game-stage {
+        min-height: 310px;
+        padding: 18px;
+        border: 3px solid var(--accent);
+        background:
+          linear-gradient(135deg, rgba(0, 255, 156, 0.12), transparent 44%),
+          #090c12;
+        box-shadow: inset 0 0 0 4px #151224, 5px 5px 0 var(--ink);
+      }
+
+      .card-table,
+      .dice-table {
+        display: grid;
+        gap: 12px;
+      }
+
+      .hand-row {
+        min-height: 108px;
+        padding: 12px;
+        border: 3px solid #6a5f92;
+        background: #111827;
+      }
+
+      .hand-row h3,
+      .dice-rollout h3 {
+        margin-bottom: 10px;
+        color: var(--gold-soft);
+        font-size: 1rem;
+        text-transform: uppercase;
+      }
+
+      .card-stack {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .playing-card {
+        position: relative;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        width: 66px;
+        height: 90px;
+        padding: 6px;
+        border: 4px solid #fff8d7;
+        background:
+          linear-gradient(90deg, rgba(0, 0, 0, 0.08) 2px, transparent 2px),
+          linear-gradient(180deg, rgba(0, 0, 0, 0.08) 2px, transparent 2px),
+          #f8f3d2;
+        background-size: 8px 8px;
+        color: #151224;
+        box-shadow: 4px 4px 0 var(--ink), inset -5px -5px 0 #d2c98f;
+        text-shadow: none;
+        font-weight: 700;
+        line-height: 1;
+        image-rendering: pixelated;
+      }
+
+      .playing-card::before,
+      .playing-card::after {
+        position: absolute;
+        content: "";
+        width: 6px;
+        height: 6px;
+        background: currentColor;
+        box-shadow:
+          6px 0 0 currentColor,
+          0 6px 0 currentColor,
+          6px 6px 0 currentColor;
+      }
+
+      .playing-card::before {
+        left: 5px;
+        top: 5px;
+      }
+
+      .playing-card::after {
+        right: 5px;
+        bottom: 5px;
+      }
+
+      .card-rank,
+      .card-suit,
+      .card-corner {
+        display: block;
+      }
+
+      .card-corner {
+        font-size: 0.75rem;
+        justify-self: start;
+        padding-left: 12px;
+        text-transform: uppercase;
+      }
+
+      .card-suit {
+        align-self: center;
+        justify-self: center;
+        width: 24px;
+        height: 24px;
+        background: currentColor;
+        clip-path: polygon(
+          35% 0,
+          65% 0,
+          65% 35%,
+          100% 35%,
+          100% 65%,
+          65% 65%,
+          65% 100%,
+          35% 100%,
+          35% 65%,
+          0 65%,
+          0 35%,
+          35% 35%
+        );
+      }
+
+      .card-rank {
+        align-self: end;
+        justify-self: end;
+        font-size: 0.9rem;
+      }
+
+      .playing-card.is-red {
+        color: #d20f39;
+      }
+
+      .playing-card.is-hidden {
+        background:
+          linear-gradient(135deg, rgba(255, 79, 216, 0.25), transparent 42%),
+          #151224;
+        color: var(--gold-soft);
+        box-shadow: 4px 4px 0 var(--ink), inset -5px -5px 0 #08090f;
+        text-shadow: 2px 2px 0 var(--ink);
+      }
+
+      .playing-card.is-hidden .card-suit {
+        clip-path: none;
+        background:
+          linear-gradient(90deg, currentColor 0 4px, transparent 4px 8px),
+          linear-gradient(180deg, currentColor 0 4px, transparent 4px 8px);
+        background-size: 8px 8px;
+      }
+
+      .dice-rollout {
+        display: grid;
+        gap: 14px;
+        align-content: start;
+        min-height: 100%;
+      }
+
+      .dice-pair {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(94px, 1fr));
+        gap: 14px;
+      }
+
+      .die-face {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(3, 1fr);
+        gap: 7px;
+        place-items: center;
+        aspect-ratio: 1;
+        min-width: 110px;
+        padding: 16px;
+        border: 4px solid #fff8d7;
+        background:
+          linear-gradient(90deg, rgba(0, 0, 0, 0.08) 2px, transparent 2px),
+          linear-gradient(180deg, rgba(0, 0, 0, 0.08) 2px, transparent 2px),
+          #fff8d7;
+        background-size: 10px 10px;
+        color: #151224;
+        box-shadow: 5px 5px 0 var(--ink), inset -8px -8px 0 #d2c98f;
+        text-shadow: none;
+        font-size: 2.4rem;
+        font-weight: 700;
+        image-rendering: pixelated;
+      }
+
+      .die-face.is-empty {
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr;
+      }
+
+      .die-pip {
+        width: 18px;
+        height: 18px;
+        background: #151224;
+        box-shadow:
+          4px 0 0 #151224,
+          0 4px 0 #151224,
+          4px 4px 0 #151224;
+      }
+
+      .dice-total {
+        padding: 14px;
+        border: 3px dashed var(--gold);
+        background: #301f00;
+        color: var(--gold-soft);
+        font-weight: 700;
+      }
+
+      .bet-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .bet-grid label.full-row {
+        grid-column: 1 / -1;
+      }
+
+      .game-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 14px;
+      }
+
+      .game-result {
+        margin-top: 14px;
+      }
+
       .task-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -700,8 +946,19 @@
         .app-grid,
         .task-grid,
         .wheel-layout,
-        .wheel-visuals {
+        .wheel-visuals,
+        .game-layout,
+        .bet-grid {
           grid-template-columns: 1fr;
+        }
+
+        .arcade-tabs,
+        .dice-pair {
+          grid-template-columns: 1fr;
+        }
+
+        .bet-grid label.full-row {
+          grid-column: auto;
         }
 
         .criteria-card {
@@ -864,45 +1121,179 @@
       </section>
 
       <section class="app-panel wheel-panel hidden" id="prize-wheel-panel">
-        <div class="wheel-layout">
-          <div class="wheel-visuals">
-            <div class="wheel-stage">
-              <div class="wheel-pointer" aria-hidden="true"></div>
-              <img
-                aria-label="Wheel of Fitness"
-                class="wheel-image"
-                id="prize-wheel-image"
-                role="img"
-                src="/assets/prize-wheel.png"
-              >
-            </div>
-            <aside class="criteria-card" aria-label="Prize wheel color rewards">
-              <img
-                alt=""
-                class="criteria-image"
-                src="/assets/wheel-criteria.png"
-              >
-            </aside>
+        <div class="section-head">
+          <div>
+            <span class="eyebrow">Arcade</span>
+            <h2>Choose your game</h2>
           </div>
-          <div class="wheel-copy">
-            <div>
-              <span class="eyebrow">Arcade</span>
-              <h2>Prize wheel</h2>
-              <p class="helper-text" id="wheel-cost-note">
-                Spin for 20 coins.
-              </p>
+          <span class="helper-text" id="arcade-balance-note"></span>
+        </div>
+        <div class="arcade-tabs" aria-label="Arcade games">
+          <button class="tab-button is-active" data-arcade-game="wheel" type="button">
+            Wheel
+          </button>
+          <button class="tab-button" data-arcade-game="blackjack" type="button">
+            21 vs Dealer
+          </button>
+          <button class="tab-button" data-arcade-game="dice" type="button">
+            Dice
+          </button>
+        </div>
+
+        <div class="arcade-game-panel is-active" data-arcade-panel="wheel">
+          <div class="wheel-layout">
+            <div class="wheel-visuals">
+              <div class="wheel-stage">
+                <div class="wheel-pointer" aria-hidden="true"></div>
+                <img
+                  aria-label="Wheel of Fitness"
+                  class="wheel-image"
+                  id="prize-wheel-image"
+                  role="img"
+                  src="/assets/prize-wheel.png"
+                >
+              </div>
+              <aside class="criteria-card" aria-label="Prize wheel color rewards">
+                <img
+                  alt=""
+                  class="criteria-image"
+                  src="/assets/wheel-criteria.png"
+                >
+              </aside>
             </div>
-            <div class="wheel-result" aria-live="polite">
-              <span>Latest prize</span>
-              <strong id="wheel-result">Ready to spin</strong>
+            <div class="wheel-copy">
+              <div>
+                <span class="eyebrow">Wheel</span>
+                <h2>Prize wheel</h2>
+                <p class="helper-text" id="wheel-cost-note">
+                  Spin for 20 coins.
+                </p>
+              </div>
+              <div class="wheel-result" aria-live="polite">
+                <span>Latest prize</span>
+                <strong id="wheel-result">Ready to spin</strong>
+              </div>
+              <div class="wheel-actions">
+                <button class="spin-button" id="spin-wheel-button" type="button">
+                  Spin - 20 coins
+                </button>
+                <span class="helper-text" id="wheel-balance-note"></span>
+              </div>
+              <div class="spin-history" id="spin-history"></div>
             </div>
-            <div class="wheel-actions">
-              <button class="spin-button" id="spin-wheel-button" type="button">
-                Spin - 20 coins
+          </div>
+        </div>
+
+        <div class="arcade-game-panel" data-arcade-panel="blackjack">
+          <div class="game-layout">
+            <div class="game-stage">
+              <div class="card-table" aria-live="polite">
+                <section class="hand-row">
+                  <h3>Dealer <span id="blackjack-dealer-total"></span></h3>
+                  <div class="card-stack" id="blackjack-dealer-hand"></div>
+                </section>
+                <section class="hand-row">
+                  <h3>You <span id="blackjack-player-total"></span></h3>
+                  <div class="card-stack" id="blackjack-player-hand"></div>
+                </section>
+              </div>
+            </div>
+            <form class="form-grid" id="blackjack-form">
+              <div>
+                <span class="eyebrow">Cards</span>
+                <h2>21 vs the dealer</h2>
+                <p class="helper-text">
+                  Place any coin bet, then hit or stand. Blackjack pays triple the bet.
+                </p>
+              </div>
+              <label>
+                <span>Bet coins</span>
+                <input id="blackjack-bet" min="1" required type="number" value="10">
+              </label>
+              <div class="game-actions">
+                <button class="primary-button" id="blackjack-deal-button" type="submit">
+                  Deal
+                </button>
+                <button class="secondary-button" disabled id="blackjack-hit-button" type="button">
+                  Hit
+                </button>
+                <button class="secondary-button" disabled id="blackjack-stand-button" type="button">
+                  Stand
+                </button>
+              </div>
+              <div class="wheel-result game-result" aria-live="polite">
+                <span>Hand result</span>
+                <strong id="blackjack-result">Place a bet to deal.</strong>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="arcade-game-panel" data-arcade-panel="dice">
+          <div class="game-layout">
+            <div class="game-stage dice-rollout" aria-live="polite">
+              <div class="dice-pair">
+                <div class="die-face" id="die-one-face">?</div>
+                <div class="die-face" id="die-two-face">?</div>
+              </div>
+              <div class="dice-total" id="dice-total-display">
+                Total: -
+              </div>
+            </div>
+            <form class="form-grid" id="dice-form">
+              <div>
+                <span class="eyebrow">Dice</span>
+                <h2>Roll two dice</h2>
+                <p class="helper-text">
+                  Bet on either die, the total, and whether the total is odd or even.
+                </p>
+              </div>
+              <div class="bet-grid">
+                <label>
+                  <span>Die 1 number</span>
+                  <input id="die-one-number" max="6" min="1" type="number" value="1">
+                </label>
+                <label>
+                  <span>Die 1 bet</span>
+                  <input id="die-one-bet" min="0" type="number" value="0">
+                </label>
+                <label>
+                  <span>Die 2 number</span>
+                  <input id="die-two-number" max="6" min="1" type="number" value="1">
+                </label>
+                <label>
+                  <span>Die 2 bet</span>
+                  <input id="die-two-bet" min="0" type="number" value="0">
+                </label>
+                <label>
+                  <span>Total number</span>
+                  <input id="dice-total-number" max="12" min="2" type="number" value="7">
+                </label>
+                <label>
+                  <span>Total bet</span>
+                  <input id="dice-total-bet" min="0" type="number" value="0">
+                </label>
+                <label>
+                  <span>Odd/even</span>
+                  <input id="dice-parity-choice" list="parity-options" type="text" value="odd">
+                  <datalist id="parity-options">
+                    <option value="odd"></option>
+                    <option value="even"></option>
+                  </datalist>
+                </label>
+                <label>
+                  <span>Odd/even bet</span>
+                  <input id="dice-parity-bet" min="0" type="number" value="0">
+                </label>
+              </div>
+              <button class="primary-button" id="dice-roll-button" type="submit">
+                Roll Dice
               </button>
-              <span class="helper-text" id="wheel-balance-note"></span>
-            </div>
-            <div class="spin-history" id="spin-history"></div>
+              <div class="wheel-result game-result" aria-live="polite">
+                <span>Roll result</span>
+                <strong id="dice-result">Place at least one bet.</strong>
+              </div>
+            </form>
           </div>
         </div>
       </section>
@@ -1064,6 +1455,15 @@
           spins: [],
           isSpinning: false,
           rotation: 0
+        },
+        arcadeGame: "wheel",
+        blackjack: {
+          deck: [],
+          player: [],
+          dealer: [],
+          bet: 0,
+          status: "idle",
+          dealerRevealed: false
         }
       };
 
@@ -1073,6 +1473,9 @@
         summaryPanel: document.getElementById("summary-panel"),
         historyPanel: document.getElementById("history-panel"),
         prizeWheelPanel: document.getElementById("prize-wheel-panel"),
+        arcadeTabs: Array.from(document.querySelectorAll("[data-arcade-game]")),
+        arcadePanels: Array.from(document.querySelectorAll("[data-arcade-panel]")),
+        arcadeBalanceNote: document.getElementById("arcade-balance-note"),
         loginTab: document.getElementById("login-tab"),
         signupTab: document.getElementById("signup-tab"),
         authForm: document.getElementById("auth-form"),
@@ -1105,6 +1508,30 @@
         wheelBalanceNote: document.getElementById("wheel-balance-note"),
         wheelResult: document.getElementById("wheel-result"),
         spinHistory: document.getElementById("spin-history"),
+        blackjackForm: document.getElementById("blackjack-form"),
+        blackjackBet: document.getElementById("blackjack-bet"),
+        blackjackDealButton: document.getElementById("blackjack-deal-button"),
+        blackjackHitButton: document.getElementById("blackjack-hit-button"),
+        blackjackStandButton: document.getElementById("blackjack-stand-button"),
+        blackjackDealerHand: document.getElementById("blackjack-dealer-hand"),
+        blackjackPlayerHand: document.getElementById("blackjack-player-hand"),
+        blackjackDealerTotal: document.getElementById("blackjack-dealer-total"),
+        blackjackPlayerTotal: document.getElementById("blackjack-player-total"),
+        blackjackResult: document.getElementById("blackjack-result"),
+        diceForm: document.getElementById("dice-form"),
+        dieOneNumber: document.getElementById("die-one-number"),
+        dieOneBet: document.getElementById("die-one-bet"),
+        dieTwoNumber: document.getElementById("die-two-number"),
+        dieTwoBet: document.getElementById("die-two-bet"),
+        diceTotalNumber: document.getElementById("dice-total-number"),
+        diceTotalBet: document.getElementById("dice-total-bet"),
+        diceParityChoice: document.getElementById("dice-parity-choice"),
+        diceParityBet: document.getElementById("dice-parity-bet"),
+        diceRollButton: document.getElementById("dice-roll-button"),
+        dieOneFace: document.getElementById("die-one-face"),
+        dieTwoFace: document.getElementById("die-two-face"),
+        diceTotalDisplay: document.getElementById("dice-total-display"),
+        diceResult: document.getElementById("dice-result"),
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
         taskGrid: document.getElementById("task-grid"),
@@ -1693,6 +2120,364 @@
         };
       }
 
+      function cardDeck() {
+        const suits = ["S", "H", "D", "C"];
+        const ranks = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+        const deck = [];
+        for (const suit of suits) {
+          for (const rank of ranks) {
+            deck.push({ rank, suit });
+          }
+        }
+        for (let index = deck.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [deck[index], deck[swapIndex]] = [deck[swapIndex], deck[index]];
+        }
+        return deck;
+      }
+
+      function cardLabel(card) {
+        const suitLabels = { S: "Spades", H: "Hearts", D: "Diamonds", C: "Clubs" };
+        return `${card.rank}${suitLabels[card.suit]?.charAt(0) || card.suit}`;
+      }
+
+      function cardSuitLetter(card) {
+        return String(card?.suit || "?").slice(0, 1).toUpperCase();
+      }
+
+      function cardValue(card) {
+        if (card.rank === "A") {
+          return 11;
+        }
+        if (["J", "Q", "K"].includes(card.rank)) {
+          return 10;
+        }
+        return Number.parseInt(card.rank, 10);
+      }
+
+      function handValue(hand) {
+        let total = hand.reduce((sum, card) => sum + cardValue(card), 0);
+        let aces = hand.filter((card) => card.rank === "A").length;
+        while (total > 21 && aces > 0) {
+          total -= 10;
+          aces -= 1;
+        }
+        return total;
+      }
+
+      function renderCards(container, cards, hiddenCount = 0) {
+        container.innerHTML = "";
+        for (const card of cards) {
+          const cardEl = document.createElement("span");
+          cardEl.className = ["H", "D"].includes(card.suit)
+            ? "playing-card is-red"
+            : "playing-card";
+          cardEl.setAttribute("aria-label", card.label || cardLabel(card));
+          cardEl.innerHTML = `
+            <span class="card-corner">${card.rank}</span>
+            <span class="card-suit" aria-hidden="true"></span>
+            <span class="card-rank">${cardSuitLetter(card)}</span>
+          `;
+          container.append(cardEl);
+        }
+        for (let index = 0; index < hiddenCount; index += 1) {
+          const cardEl = document.createElement("span");
+          cardEl.className = "playing-card is-hidden";
+          cardEl.setAttribute("aria-label", "Hidden card");
+          cardEl.innerHTML = `
+            <span class="card-corner">?</span>
+            <span class="card-suit" aria-hidden="true"></span>
+            <span class="card-rank">?</span>
+          `;
+          container.append(cardEl);
+        }
+      }
+
+      function renderBlackjackState(state) {
+        const playerCards = state?.playerCards || state?.player || [];
+        const dealerCards = state?.dealerCards || state?.dealer || [];
+        const hiddenCount = state?.dealerHiddenCount || 0;
+        const playerTotal = state?.playerTotal ?? handValue(playerCards);
+        const dealerTotal = state?.dealerTotal;
+        const isPlaying = state?.status === "playing";
+
+        renderCards(elements.blackjackPlayerHand, playerCards);
+        renderCards(elements.blackjackDealerHand, dealerCards, hiddenCount);
+        elements.blackjackPlayerTotal.textContent = playerCards.length
+          ? `- ${formatNumber(playerTotal)}`
+          : "";
+        elements.blackjackDealerTotal.textContent =
+          dealerTotal === null || dealerTotal === undefined
+            ? dealerCards.length
+              ? "- showing"
+              : ""
+            : `- ${formatNumber(dealerTotal)}`;
+        elements.blackjackHitButton.disabled = !isPlaying;
+        elements.blackjackStandButton.disabled = !isPlaying;
+        elements.blackjackDealButton.disabled = isPlaying;
+        elements.blackjackBet.disabled = isPlaying;
+        if (state?.message) {
+          elements.blackjackResult.textContent = state.message;
+        }
+      }
+
+      function resetBlackjackTable() {
+        appState.blackjack = {
+          deck: [],
+          player: [],
+          dealer: [],
+          bet: 0,
+          status: "idle",
+          dealerRevealed: false
+        };
+        renderBlackjackState({
+          playerCards: [],
+          dealerCards: [],
+          dealerHiddenCount: 0,
+          playerTotal: null,
+          dealerTotal: null,
+          status: "idle",
+          message: "Place a bet to deal."
+        });
+      }
+
+      function finishLocalBlackjack(outcome, payout, message) {
+        appState.blackjack.status = "finished";
+        appState.blackjack.dealerRevealed = true;
+        const user = updateLocalUserPoints(payout);
+        renderBlackjackState({
+          ...appState.blackjack,
+          playerTotal: handValue(appState.blackjack.player),
+          dealerTotal: handValue(appState.blackjack.dealer),
+          status: "finished",
+          payout,
+          outcome,
+          message
+        });
+        updateCoinDisplay(user);
+        setMessage(
+          `${message} Balance: ${formatNumber(user.points)} coins.`
+        );
+      }
+
+      function startLocalBlackjack(bet) {
+        const currentUser = currentLocalAccount();
+        if (!currentUser) {
+          throw new Error("Log in first to play blackjack.");
+        }
+        if (currentUser.points < bet) {
+          throw new Error("Not enough coins for that blackjack bet.");
+        }
+
+        const deck = cardDeck();
+        appState.blackjack = {
+          deck,
+          player: [deck.pop(), deck.pop()],
+          dealer: [deck.pop(), deck.pop()],
+          bet,
+          status: "playing",
+          dealerRevealed: false
+        };
+        updateCoinDisplay(updateLocalUserPoints(-bet));
+
+        const playerTotal = handValue(appState.blackjack.player);
+        const dealerTotal = handValue(appState.blackjack.dealer);
+        if (playerTotal === 21 || dealerTotal === 21) {
+          if (playerTotal === 21 && dealerTotal === 21) {
+            finishLocalBlackjack("push", bet, "Both hands hit 21. Your bet was returned.");
+          } else if (playerTotal === 21) {
+            finishLocalBlackjack("blackjack", bet * 3, "Blackjack! You beat the dealer.");
+          } else {
+            finishLocalBlackjack("dealer_blackjack", 0, "Dealer has 21.");
+          }
+          return;
+        }
+
+        renderBlackjackState({
+          ...appState.blackjack,
+          playerTotal,
+          dealerTotal: null,
+          dealerHiddenCount: 1,
+          message: "Hit or stand."
+        });
+      }
+
+      function drawLocalBlackjackCard() {
+        if (!appState.blackjack.deck.length) {
+          appState.blackjack.deck = cardDeck();
+        }
+        return appState.blackjack.deck.pop();
+      }
+
+      function hitLocalBlackjack() {
+        if (appState.blackjack.status !== "playing") {
+          return;
+        }
+        appState.blackjack.player.push(drawLocalBlackjackCard());
+        const playerTotal = handValue(appState.blackjack.player);
+        if (playerTotal > 21) {
+          finishLocalBlackjack("bust", 0, "You busted. Dealer wins this hand.");
+          return;
+        }
+        renderBlackjackState({
+          ...appState.blackjack,
+          playerTotal,
+          dealerTotal: null,
+          dealerHiddenCount: 1,
+          message: "Card dealt."
+        });
+      }
+
+      function standLocalBlackjack() {
+        if (appState.blackjack.status !== "playing") {
+          return;
+        }
+        while (handValue(appState.blackjack.dealer) < 17) {
+          appState.blackjack.dealer.push(drawLocalBlackjackCard());
+        }
+        const playerTotal = handValue(appState.blackjack.player);
+        const dealerTotal = handValue(appState.blackjack.dealer);
+        if (dealerTotal > 21) {
+          finishLocalBlackjack("dealer_bust", appState.blackjack.bet * 2, "Dealer busted. You win.");
+        } else if (playerTotal > dealerTotal) {
+          finishLocalBlackjack("win", appState.blackjack.bet * 2, "You beat the dealer.");
+        } else if (playerTotal === dealerTotal) {
+          finishLocalBlackjack("push", appState.blackjack.bet, "Push. Your bet was returned.");
+        } else {
+          finishLocalBlackjack("lose", 0, "Dealer wins this hand.");
+        }
+      }
+
+      function diceBetPayload() {
+        return {
+          dieOneNumber: Number.parseInt(elements.dieOneNumber.value, 10),
+          dieOneBet: Number.parseInt(elements.dieOneBet.value, 10) || 0,
+          dieTwoNumber: Number.parseInt(elements.dieTwoNumber.value, 10),
+          dieTwoBet: Number.parseInt(elements.dieTwoBet.value, 10) || 0,
+          totalNumber: Number.parseInt(elements.diceTotalNumber.value, 10),
+          totalBet: Number.parseInt(elements.diceTotalBet.value, 10) || 0,
+          parityChoice: elements.diceParityChoice.value.trim().toLowerCase(),
+          parityBet: Number.parseInt(elements.diceParityBet.value, 10) || 0
+        };
+      }
+
+      function rollLocalDice(payload) {
+        const currentUser = currentLocalAccount();
+        if (!currentUser) {
+          throw new Error("Log in first to roll dice.");
+        }
+
+        const bets = [
+          { kind: "die_one", amount: payload.dieOneBet, value: payload.dieOneNumber },
+          { kind: "die_two", amount: payload.dieTwoBet, value: payload.dieTwoNumber },
+          { kind: "total", amount: payload.totalBet, value: payload.totalNumber },
+          { kind: "parity", amount: payload.parityBet, value: payload.parityChoice }
+        ].filter((bet) => bet.amount > 0);
+
+        if (!bets.length) {
+          throw new Error("Place at least one dice bet.");
+        }
+        if (bets.some((bet) => !Number.isFinite(bet.amount) || bet.amount < 1)) {
+          throw new Error("Each dice bet must be at least 1 coin.");
+        }
+        if (bets.some((bet) => bet.kind !== "parity" && !Number.isFinite(bet.value))) {
+          throw new Error("Choose a number for each active dice bet.");
+        }
+        if (bets.some((bet) => bet.kind === "die_one" && (bet.value < 1 || bet.value > 6))) {
+          throw new Error("Die 1 number must be from 1 to 6.");
+        }
+        if (bets.some((bet) => bet.kind === "die_two" && (bet.value < 1 || bet.value > 6))) {
+          throw new Error("Die 2 number must be from 1 to 6.");
+        }
+        if (bets.some((bet) => bet.kind === "total" && (bet.value < 2 || bet.value > 12))) {
+          throw new Error("Total number must be from 2 to 12.");
+        }
+        if (bets.some((bet) => bet.kind === "parity" && !["odd", "even"].includes(bet.value))) {
+          throw new Error("Choose odd or even for the total.");
+        }
+
+        const totalWager = bets.reduce((sum, bet) => sum + bet.amount, 0);
+        if (currentUser.points < totalWager) {
+          throw new Error("Not enough coins for those dice bets.");
+        }
+
+        const dieOne = Math.floor(Math.random() * 6) + 1;
+        const dieTwo = Math.floor(Math.random() * 6) + 1;
+        const total = dieOne + dieTwo;
+        const parity = total % 2 === 0 ? "even" : "odd";
+        let winnings = 0;
+        const resolvedBets = bets.map((bet) => {
+          let won = false;
+          let multiplier = 0;
+          if (bet.kind === "die_one") {
+            won = dieOne === bet.value;
+            multiplier = 6;
+          } else if (bet.kind === "die_two") {
+            won = dieTwo === bet.value;
+            multiplier = 6;
+          } else if (bet.kind === "total") {
+            won = total === bet.value;
+            multiplier = 10;
+          } else {
+            won = parity === bet.value;
+            multiplier = 2;
+          }
+          const payout = won ? bet.amount * multiplier : 0;
+          winnings += payout;
+          return { ...bet, won, payout };
+        });
+        const user = updateLocalUserPoints(-totalWager + winnings);
+
+        return {
+          message: "Dice rolled.",
+          roll: { dieOne, dieTwo, total, parity },
+          bets: resolvedBets,
+          totalWager,
+          winnings,
+          net: winnings - totalWager,
+          user
+        };
+      }
+
+      function renderDiceResult(result) {
+        renderDieFace(elements.dieOneFace, result.roll.dieOne);
+        renderDieFace(elements.dieTwoFace, result.roll.dieTwo);
+        elements.diceTotalDisplay.textContent =
+          `Total: ${result.roll.total} (${result.roll.parity})`;
+        const netText = result.net >= 0
+          ? `+${formatNumber(result.net)}`
+          : formatNumber(result.net);
+        elements.diceResult.textContent =
+          `Won ${formatNumber(result.winnings)} on ${formatNumber(result.totalWager)} wagered. Net ${netText}.`;
+      }
+
+      function renderDieFace(element, value) {
+        const pipMap = {
+          1: [5],
+          2: [1, 9],
+          3: [1, 5, 9],
+          4: [1, 3, 7, 9],
+          5: [1, 3, 5, 7, 9],
+          6: [1, 3, 4, 6, 7, 9]
+        };
+        const pips = pipMap[value];
+        element.innerHTML = "";
+        element.classList.toggle("is-empty", !pips);
+
+        if (!pips) {
+          element.textContent = "?";
+          return;
+        }
+
+        for (let position = 1; position <= 9; position += 1) {
+          const cell = document.createElement("span");
+          if (pips.includes(position)) {
+            cell.className = "die-pip";
+          }
+          element.append(cell);
+        }
+      }
+
       function currentDailyCompletedIds() {
         if (appState.user && !appState.user.localMode) {
           return appState.completedTaskIds;
@@ -2029,6 +2814,7 @@
         appState.user = user;
         updateLocalCoinDisplay();
         updateCustomWorkoutAvailability();
+        updateArcadeControls();
         updatePrizeWheelControls();
       }
 
@@ -2106,6 +2892,24 @@
         updatePreview();
       }
 
+      function setArcadeGame(game) {
+        appState.arcadeGame = game;
+        elements.arcadeTabs.forEach((tab) => {
+          tab.classList.toggle("is-active", tab.dataset.arcadeGame === game);
+        });
+        elements.arcadePanels.forEach((panel) => {
+          panel.classList.toggle("is-active", panel.dataset.arcadePanel === game);
+        });
+      }
+
+      function updateArcadeControls() {
+        const balance = appState.user?.points || 0;
+        if (elements.arcadeBalanceNote) {
+          elements.arcadeBalanceNote.textContent =
+            `${formatNumber(balance)} coins available`;
+        }
+      }
+
       function updatePrizeWheelControls() {
         const cost = appState.prizeWheel.spinCost;
         const balance = appState.user?.points || 0;
@@ -2126,6 +2930,7 @@
           : canSpin
             ? `${formatNumber(balance)} coins available`
             : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`;
+        updateArcadeControls();
       }
 
       function updatePrizeWheel(wheel) {
@@ -2235,6 +3040,89 @@
         }
       }
 
+      async function handleBlackjackDeal(event) {
+        event.preventDefault();
+        const bet = Number.parseInt(elements.blackjackBet.value, 10);
+        if (!Number.isFinite(bet) || bet < 1) {
+          setMessage("Enter a blackjack bet of at least 1 coin.", true);
+          return;
+        }
+
+        elements.blackjackResult.textContent = "Dealing...";
+        try {
+          const result = appState.user?.localMode
+            ? startLocalBlackjack(bet)
+            : await apiFetch("/api/arcade/blackjack/start", {
+                method: "POST",
+                body: JSON.stringify({ bet })
+              });
+          if (result) {
+            renderBlackjackState(result);
+            updateCoinDisplay(result.user);
+            if (result.status !== "playing") {
+              setMessage(`${result.message} Balance: ${formatNumber(result.user.points)} coins.`);
+            }
+          }
+        } catch (error) {
+          elements.blackjackResult.textContent = "Place a bet to deal.";
+          setMessage(error.message, true);
+        }
+      }
+
+      async function handleBlackjackAction(action) {
+        if (appState.user?.localMode) {
+          try {
+            if (action === "hit") {
+              hitLocalBlackjack();
+            } else {
+              standLocalBlackjack();
+            }
+          } catch (error) {
+            setMessage(error.message, true);
+          }
+          return;
+        }
+
+        try {
+          const result = await apiFetch(`/api/arcade/blackjack/${action}`, {
+            method: "POST"
+          });
+          renderBlackjackState(result);
+          updateCoinDisplay(result.user);
+          if (result.status !== "playing") {
+            setMessage(`${result.message} Balance: ${formatNumber(result.user.points)} coins.`);
+          }
+        } catch (error) {
+          setMessage(error.message, true);
+        }
+      }
+
+      async function handleDiceRoll(event) {
+        event.preventDefault();
+        const payload = diceBetPayload();
+        elements.diceRollButton.disabled = true;
+        elements.diceResult.textContent = "Rolling...";
+
+        try {
+          const result = appState.user?.localMode
+            ? rollLocalDice(payload)
+            : await apiFetch("/api/arcade/dice/roll", {
+                method: "POST",
+                body: JSON.stringify(payload)
+              });
+          renderDiceResult(result);
+          updateCoinDisplay(result.user);
+          setMessage(
+            `Dice total ${result.roll.total}. Balance: ${formatNumber(result.user.points)} coins.`
+          );
+        } catch (error) {
+          elements.diceResult.textContent = "Place at least one bet.";
+          setMessage(error.message, true);
+        } finally {
+          elements.diceRollButton.disabled = false;
+        }
+      }
+
       function updateHistory(history) {
         if (!elements.historyList) {
           return;
@@ -2290,6 +3178,11 @@
           elements.spinHistory.innerHTML = "";
         }
         elements.wheelResult.textContent = "Ready to spin";
+        resetBlackjackTable();
+        renderDieFace(elements.dieOneFace, null);
+        renderDieFace(elements.dieTwoFace, null);
+        elements.diceTotalDisplay.textContent = "Total: -";
+        elements.diceResult.textContent = "Place at least one bet.";
         showAuthed();
       }
 
@@ -2589,6 +3482,17 @@
       elements.logoutButton.addEventListener("click", handleLogout);
       elements.steps.addEventListener("input", updatePreview);
       elements.spinWheelButton.addEventListener("click", handlePrizeWheelSpin);
+      elements.arcadeTabs.forEach((tab) => {
+        tab.addEventListener("click", () => setArcadeGame(tab.dataset.arcadeGame));
+      });
+      elements.blackjackForm.addEventListener("submit", handleBlackjackDeal);
+      elements.blackjackHitButton.addEventListener("click", () => {
+        handleBlackjackAction("hit");
+      });
+      elements.blackjackStandButton.addEventListener("click", () => {
+        handleBlackjackAction("stand");
+      });
+      elements.diceForm.addEventListener("submit", handleDiceRoll);
       elements.showCustomWorkout.addEventListener("click", () => {
         if (elements.showCustomWorkout.dataset.canSaveServerWorkout !== "true") {
           setMessage(
@@ -2605,6 +3509,10 @@
       elements.customWorkoutForm.addEventListener("submit", createCustomWorkout);
 
       setAuthMode("login");
+      setArcadeGame("wheel");
+      resetBlackjackTable();
+      renderDieFace(elements.dieOneFace, null);
+      renderDieFace(elements.dieTwoFace, null);
       updatePreview();
       checkSession();
     </script>

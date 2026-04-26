@@ -97,4 +97,19 @@ def create_app():
             "wheel_criteria.png",
         )
 
+    @app.get("/assets/cards.png")
+    @app.get("/assets/card.png")
+    def card_asset():
+        return send_from_directory(
+            os.path.abspath(os.path.join(app.root_path, "..")),
+            "cards.png",
+        )
+
+    @app.get("/assets/dice.png")
+    def dice_asset():
+        return send_from_directory(
+            os.path.abspath(os.path.join(app.root_path, "..")),
+            "dice.png",
+        )
+
     return app
