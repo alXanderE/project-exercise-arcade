@@ -51,6 +51,28 @@ def current_timestamp():
     return datetime.now(timezone.utc)
 
 
+def normalize_sql_user_id(value):
+    if value is None:
+        return None
+
+    if isinstance(value, bool):
+        return None
+
+    if isinstance(value, int):
+        return value if value > 0 else None
+
+    normalized = str(value or "").strip().lower()
+    if normalized in {"", "null", "none", "undefined"}:
+        return None
+
+    try:
+        parsed = int(normalized)
+    except (TypeError, ValueError):
+        return None
+
+    return parsed if parsed > 0 else None
+
+
 def normalize_auth_document(document):
     if not document:
         return None
@@ -64,6 +86,7 @@ def normalize_auth_document(document):
         )
         .strip()
         .lower(),
+        "sql_user_id": normalize_sql_user_id(document.get("sql_user_id")),
     }
 
 
@@ -125,12 +148,14 @@ def create_auth_user(email, display_name, password_hash, sql_user_id):
         "display_name": str(display_name).strip(),
         "display_name_lower": str(display_name).strip().lower(),
         "password_hash": password_hash,
-        "sql_user_id": sql_user_id,
         "points": 0,
         "level": 1,
         "created_at": timestamp,
         "updated_at": timestamp,
     }
+    normalized_sql_user_id = normalize_sql_user_id(sql_user_id)
+    if normalized_sql_user_id is not None:
+        document["sql_user_id"] = normalized_sql_user_id
     users.insert_one(document)
     return normalize_auth_document(document)
 
@@ -149,12 +174,21 @@ def update_auth_user(email, **updates):
         update_fields["display_name_lower"] = update_fields["display_name"].lower()
     if "email" in update_fields:
         update_fields["email"] = str(update_fields["email"]).strip().lower()
+    if "sql_user_id" in update_fields:
+        update_fields["sql_user_id"] = normalize_sql_user_id(update_fields["sql_user_id"])
     update_fields["updated_at"] = current_timestamp()
 
-    get_auth_collection().update_one(
-        {"email": normalized_email},
-        {"$set": update_fields},
-    )
+    set_fields = dict(update_fields)
+    unset_fields = {}
+    if "sql_user_id" in set_fields and set_fields["sql_user_id"] is None:
+        set_fields.pop("sql_user_id", None)
+        unset_fields["sql_user_id"] = ""
+
+    update_document = {"$set": set_fields}
+    if unset_fields:
+        update_document["$unset"] = unset_fields
+
+    get_auth_collection().update_one({"email": normalized_email}, update_document)
     return find_auth_user_by_email(update_fields.get("email", normalized_email))
 
 

@@ -41,9 +41,24 @@ function parseCookies(cookieHeader) {
         }, {});
 }
 
+function normalizeSqlUserId(value) {
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+        return value;
+    }
+
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized || normalized === "null" || normalized === "none" || normalized === "undefined") {
+        return null;
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 function serializeUser(user) {
+    const sqlUserId = normalizeSqlUserId(user.sql_user_id);
     return {
-        id: user.sql_user_id || user.email,
+        id: sqlUserId || user.email,
         email: user.email,
         displayName: user.display_name,
         points: Number.parseInt(user.points || 0, 10) || 0,

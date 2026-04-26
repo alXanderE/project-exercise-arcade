@@ -26,6 +26,7 @@ from .mongo_auth import (
     find_auth_user_by_session_token,
     mongo_auth_enabled,
     mongo_auth_unavailable_reason,
+    normalize_sql_user_id,
     set_auth_session,
     update_auth_user,
 )
@@ -237,7 +238,7 @@ def verify_google_id_token(token):
 
 
 def sync_sql_user_from_auth_document(auth_user):
-    sql_user_id = auth_user.get("sql_user_id")
+    sql_user_id = normalize_sql_user_id(auth_user.get("sql_user_id"))
     user = User.query.get(sql_user_id) if sql_user_id else None
     if not user:
         user = User.query.filter_by(email=auth_user["email"]).first()

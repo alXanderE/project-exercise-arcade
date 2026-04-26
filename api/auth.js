@@ -42,6 +42,20 @@ function normalizeEmail(email) {
     return String(email || "").trim().toLowerCase();
 }
 
+function normalizeSqlUserId(value) {
+    if (typeof value === "number" && Number.isInteger(value) && value > 0) {
+        return value;
+    }
+
+    const normalized = String(value || "").trim().toLowerCase();
+    if (!normalized || normalized === "null" || normalized === "none" || normalized === "undefined") {
+        return null;
+    }
+
+    const parsed = Number.parseInt(normalized, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 function baseDisplayName(name, email) {
     const candidate = String(name || "").trim() || normalizeEmail(email).split("@")[0];
     return candidate.slice(0, 120) || "Player";
@@ -104,8 +118,9 @@ function setSessionCookie(res, sessionToken) {
 }
 
 function serializeUser(user) {
+    const sqlUserId = normalizeSqlUserId(user.sql_user_id);
     return {
-        id: user.sql_user_id || user.email,
+        id: sqlUserId || user.email,
         email: user.email,
         displayName: user.display_name,
         points: Number.parseInt(user.points || 0, 10) || 0,
@@ -124,6 +139,7 @@ async function upsertGoogleUser(payload) {
         const nextDisplayName =
             existingUser.display_name ||
             (await uniqueDisplayName(users, payload.name, email));
+        const sqlUserId = normalizeSqlUserId(existingUser.sql_user_id);
 
         await users.updateOne(
             { email },
@@ -138,6 +154,7 @@ async function upsertGoogleUser(payload) {
                     google_sub: payload.sub,
                     picture: payload.picture || null,
                 },
+                ...(sqlUserId === null ? { $unset: { sql_user_id: "" } } : {}),
                 $setOnInsert: {
                     created_at: timestamp,
                 },
@@ -154,7 +171,6 @@ async function upsertGoogleUser(payload) {
         display_name: displayName,
         display_name_lower: displayName.toLowerCase(),
         password_hash: placeholderPasswordHash(payload.sub),
-        sql_user_id: null,
         points: 0,
         level: 1,
         created_at: timestamp,
