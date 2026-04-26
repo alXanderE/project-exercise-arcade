@@ -123,12 +123,19 @@
             setStatus("Checking your Google account...");
 
             try {
-                const loginRes = await fetch("/api/auth/google", {
+                const loginRes = await fetch("/api/auth", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ token: response.credential })
                 });
-                const data = await loginRes.json();
+                const raw = await loginRes.text();
+                let data = {};
+
+                try {
+                    data = raw ? JSON.parse(raw) : {};
+                } catch {
+                    throw new Error("Unexpected login response from the server.");
+                }
 
                 if (loginRes.ok) {
                     setStatus("Google sign-in successful. Taking you back to the app...");

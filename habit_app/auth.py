@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 import secrets
 
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.exceptions import BadRequest
 
 
 def hash_password(password):
@@ -9,7 +10,10 @@ def hash_password(password):
 
 
 def verify_password(password, password_hash):
-    return check_password_hash(password_hash, password)
+    try:
+        return check_password_hash(password_hash, password)
+    except (ValueError, BadRequest):
+        return False
 
 
 def build_session(days):
