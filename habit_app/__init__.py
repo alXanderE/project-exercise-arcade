@@ -98,6 +98,13 @@ def create_app():
             "wheel_criteria.png",
         )
 
+    @app.get("/assets/wheel-spin.mp3")
+    def wheel_spin_audio_asset():
+        return send_from_directory(
+            os.path.abspath(os.path.join(app.root_path, "..")),
+            "wheep_spin.mp3",
+        )
+
     @app.get("/assets/cards.png")
     @app.get("/assets/card.png")
     def card_asset():
