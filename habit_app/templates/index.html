@@ -2294,6 +2294,7 @@
               password: localUser.password,
               localMode: false
             });
+            await applyTasksForCurrentUser();
             await refreshFitness();
             return;
           } catch {
@@ -2302,6 +2303,7 @@
               localMode: true
             };
             setCurrentLocalAccount(offlineUser);
+            await applyTasksForCurrentUser();
             showAuthedShell(offlineUser);
             await refreshFitness();
             return;
@@ -2335,6 +2337,11 @@
         updateLocalCoinDisplay();
       }
 
+      async function applyTasksForCurrentUser() {
+        await loadDailyTasks();
+        updateTaskCards();
+      }
+
       async function handleAuth(event) {
         event.preventDefault();
 
@@ -2365,6 +2372,7 @@
               password,
               localMode: false
             });
+            await applyTasksForCurrentUser();
             elements.password.value = "";
             showAuthedShell(result.user);
             setMessage("");
@@ -2381,6 +2389,7 @@
           } catch (error) {
             try {
               const localUser = createLocalAccount(email, displayName, password);
+              await applyTasksForCurrentUser();
               elements.password.value = "";
               showAuthedShell(localUser);
               await refreshFitness();
@@ -2406,6 +2415,7 @@
             password: elements.password.value,
             localMode: false
           });
+          await applyTasksForCurrentUser();
           elements.password.value = "";
           showAuthedShell(result.user);
           setMessage("");
@@ -2434,6 +2444,7 @@
             ...localUser,
             localMode: true
           });
+          await applyTasksForCurrentUser();
           elements.password.value = "";
           showAuthedShell({
             ...localUser,
