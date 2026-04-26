@@ -49,23 +49,33 @@ def user_key(user):
     return str(user.email).strip().lower()
 
 
+def user_document(user):
+    return users_collection().find_one({"email": user_key(user)}) or {}
+
+
+def nested_items(document, field_name):
+    items = document.get(field_name)
+    return list(items) if isinstance(items, list) else []
+
+
+def item_identifier(document):
+    return str(document.get("id") or document.get("_id") or "")
+
+
+def datetime_to_iso(value):
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    return str(value or "")
+
+
 def ensure_mongo_game_indexes():
     if not mongo_game_enabled():
         return
-
-    fitness_logs_collection().create_index(
-        [("user_key", 1), ("logged_on", 1)],
-        unique=True,
-    )
-    daily_task_completions_collection().create_index(
-        [("user_key", 1), ("task_id", 1), ("completed_on", 1)],
-        unique=True,
-    )
-    prize_wheel_spins_collection().create_index([("user_key", 1), ("created_at", -1)])
+    users_collection().create_index([("email", 1)], unique=True)
 
 
 def get_user_account_state(user):
-    document = users_collection().find_one({"email": user_key(user)}) or {}
+    document = user_document(user)
     points = int(document.get("points") or 0)
     level = int(document.get("level") or 1)
     return {"points": max(0, points), "level": max(1, level)}
@@ -81,9 +91,9 @@ def sync_sql_user_points(user):
 def update_user_account_state(user, *, points=None, level=None):
     update_fields = {"updated_at": now_utc()}
     if points is not None:
-      update_fields["points"] = max(0, int(points))
+        update_fields["points"] = max(0, int(points))
     if level is not None:
-      update_fields["level"] = max(1, int(level))
+        update_fields["level"] = max(1, int(level))
 
     users_collection().update_one(
         {"email": user_key(user)},
@@ -98,36 +108,36 @@ def update_user_account_state(user, *, points=None, level=None):
 
 def serialize_mongo_fitness_log(log):
     return {
-        "id": str(log["_id"]),
+        "id": item_identifier(log),
         "loggedOn": log["logged_on"],
         "steps": int(log["steps"]),
         "source": log.get("source", "manual"),
         "pointsAwarded": int(log.get("points_awarded", 0)),
         "notes": log.get("notes"),
-        "createdAt": log["created_at"].isoformat(),
-        "updatedAt": log["updated_at"].isoformat(),
+        "createdAt": datetime_to_iso(log.get("created_at")),
+        "updatedAt": datetime_to_iso(log.get("updated_at")),
     }
 
 
 def serialize_mongo_daily_task_completion(completion):
     return {
-        "id": str(completion["_id"]),
+        "id": item_identifier(completion),
         "taskId": completion["task_id"],
         "completedOn": completion["completed_on"],
         "pointsAwarded": int(completion.get("points_awarded", 0)),
-        "createdAt": completion["created_at"].isoformat(),
+        "createdAt": datetime_to_iso(completion.get("created_at")),
     }
 
 
 def serialize_mongo_prize_wheel_spin(spin):
     return {
-        "id": str(spin["_id"]),
+        "id": item_identifier(spin),
         "sliceId": spin["slice_id"],
         "pointsSpent": int(spin["points_spent"]),
         "rewardType": spin["reward_type"],
         "rewardValue": int(spin["reward_value"]),
         "prizeLabel": spin["prize_label"],
-        "createdAt": spin["created_at"].isoformat(),
+        "createdAt": datetime_to_iso(spin.get("created_at")),
     }
 
 
@@ -145,13 +155,14 @@ def serialize_mongo_custom_task(task):
 
 
 def list_custom_tasks(user):
-    document = users_collection().find_one({"email": user_key(user)}) or {}
-    tasks = document.get("custom_tasks") or []
+    document = user_document(user)
+    tasks = nested_items(document, "custom_tasks")
     return [serialize_mongo_custom_task(task) for task in tasks]
 
 
 def create_custom_task(user, title, category, description, coin_reward):
     document = {
+        "id": secrets.token_hex(12),
         "task_id": f"custom-{secrets.token_hex(8)}",
         "title": title,
         "category": category,
@@ -171,21 +182,19 @@ def create_custom_task(user, title, category, description, coin_reward):
 
 
 def find_custom_task(user, task_id):
-    document = users_collection().find_one(
-        {"email": user_key(user), "custom_tasks.task_id": task_id},
-        {"custom_tasks.$": 1},
-    ) or {}
-    tasks = document.get("custom_tasks") or []
-    task = tasks[0] if tasks else None
+    document = user_document(user)
+    tasks = nested_items(document, "custom_tasks")
+    task = next((item for item in tasks if item.get("task_id") == task_id), None)
     return serialize_mongo_custom_task(task) if task else None
 
 
 def get_daily_task_completions(user, completed_on):
-    completions = list(
-        daily_task_completions_collection().find(
-            {"user_key": user_key(user), "completed_on": completed_on}
-        )
-    )
+    document = user_document(user)
+    completions = [
+        completion
+        for completion in nested_items(document, "daily_task_completions")
+        if completion.get("completed_on") == completed_on
+    ]
     return {
         "completedTaskIds": [completion["task_id"] for completion in completions],
         "completions": [
@@ -205,12 +214,16 @@ def complete_daily_task(user, task_id, completed_on, calculate_level_fn):
     resolved_task_id = task["id"] if isinstance(task, dict) else task.id
     resolved_points = int(task["coin_reward"] if isinstance(task, dict) else task.coin_reward)
 
-    existing = daily_task_completions_collection().find_one(
-        {
-            "user_key": user_key(user),
-            "task_id": resolved_task_id,
-            "completed_on": completed_on,
-        }
+    document = user_document(user)
+    completions = nested_items(document, "daily_task_completions")
+    existing = next(
+        (
+            completion
+            for completion in completions
+            if completion.get("task_id") == resolved_task_id
+            and completion.get("completed_on") == completed_on
+        ),
+        None,
     )
     if existing:
         return (
@@ -223,13 +236,22 @@ def complete_daily_task(user, task_id, completed_on, calculate_level_fn):
         )
 
     completion = {
-        "user_key": user_key(user),
+        "id": secrets.token_hex(12),
         "task_id": resolved_task_id,
         "completed_on": completed_on,
         "points_awarded": resolved_points,
         "created_at": now_utc(),
     }
-    daily_task_completions_collection().insert_one(completion)
+    completions.append(completion)
+    users_collection().update_one(
+        {"email": user_key(user)},
+        {
+            "$set": {
+                "daily_task_completions": completions,
+                "updated_at": now_utc(),
+            }
+        },
+    )
     next_points = user.points + resolved_points
     next_level = calculate_level_fn(next_points)
     update_user_account_state(user, points=next_points, level=next_level)
@@ -252,8 +274,11 @@ def save_fitness_steps(
     calculate_points_fn,
     calculate_level_fn,
 ):
-    existing = fitness_logs_collection().find_one(
-        {"user_key": user_key(user), "logged_on": logged_on}
+    document = user_document(user)
+    logs = nested_items(document, "fitness_logs")
+    existing = next(
+        (log for log in logs if log.get("logged_on") == logged_on),
+        None,
     )
     created = existing is None
 
@@ -266,7 +291,7 @@ def save_fitness_steps(
 
     if created:
         log = {
-            "user_key": user_key(user),
+            "id": secrets.token_hex(12),
             "logged_on": logged_on,
             "steps": total_steps,
             "source": "manual",
@@ -275,20 +300,8 @@ def save_fitness_steps(
             "created_at": timestamp,
             "updated_at": timestamp,
         }
-        fitness_logs_collection().insert_one(log)
+        logs.append(log)
     else:
-        fitness_logs_collection().update_one(
-            {"_id": existing["_id"]},
-            {
-                "$set": {
-                    "steps": total_steps,
-                    "source": "manual",
-                    "points_awarded": points_awarded,
-                    "notes": notes,
-                    "updated_at": timestamp,
-                }
-            },
-        )
         log = {
             **existing,
             "steps": total_steps,
@@ -297,6 +310,20 @@ def save_fitness_steps(
             "notes": notes,
             "updated_at": timestamp,
         }
+        logs = [
+            log if item.get("logged_on") == logged_on else item
+            for item in logs
+        ]
+
+    users_collection().update_one(
+        {"email": user_key(user)},
+        {
+            "$set": {
+                "fitness_logs": logs,
+                "updated_at": timestamp,
+            }
+        },
+    )
 
     next_points = max(0, user.points + points_delta)
     next_level = calculate_level_fn(next_points)
@@ -310,17 +337,21 @@ def save_fitness_steps(
 
 
 def fitness_history(user, limit=30):
-    logs = (
-        fitness_logs_collection()
-        .find({"user_key": user_key(user)})
-        .sort([("logged_on", -1), ("created_at", -1)])
-        .limit(limit)
-    )
+    document = user_document(user)
+    logs = sorted(
+        nested_items(document, "fitness_logs"),
+        key=lambda log: (
+            str(log.get("logged_on") or ""),
+            datetime_to_iso(log.get("created_at")),
+        ),
+        reverse=True,
+    )[:limit]
     return {"logs": [serialize_mongo_fitness_log(log) for log in logs]}
 
 
 def fitness_summary(user, daily_goal_steps):
-    logs = list(fitness_logs_collection().find({"user_key": user_key(user)}))
+    document = user_document(user)
+    logs = nested_items(document, "fitness_logs")
     today_key = datetime.now().date().isoformat()
     today_log = next((log for log in logs if log["logged_on"] == today_key), None)
     return {
@@ -351,7 +382,7 @@ def record_prize_wheel_spin(
     calculate_level_fn,
 ):
     spin = {
-        "user_key": user_key(user),
+        "id": secrets.token_hex(12),
         "slice_id": int(slice_id),
         "points_spent": int(points_spent),
         "reward_type": reward_type,
@@ -359,7 +390,18 @@ def record_prize_wheel_spin(
         "prize_label": prize_label,
         "created_at": now_utc(),
     }
-    prize_wheel_spins_collection().insert_one(spin)
+    document = user_document(user)
+    spins = nested_items(document, "prize_wheel_spins")
+    spins.append(spin)
+    users_collection().update_one(
+        {"email": user_key(user)},
+        {
+            "$set": {
+                "prize_wheel_spins": spins,
+                "updated_at": now_utc(),
+            }
+        },
+    )
     next_points = max(0, user.points - int(points_spent) + int(reward_delta))
     next_level = calculate_level_fn(next_points)
     update_user_account_state(user, points=next_points, level=next_level)
@@ -367,10 +409,10 @@ def record_prize_wheel_spin(
 
 
 def prize_wheel_history(user, limit=20):
-    spins = (
-        prize_wheel_spins_collection()
-        .find({"user_key": user_key(user)})
-        .sort("created_at", -1)
-        .limit(limit)
-    )
+    document = user_document(user)
+    spins = sorted(
+        nested_items(document, "prize_wheel_spins"),
+        key=lambda spin: datetime_to_iso(spin.get("created_at")),
+        reverse=True,
+    )[:limit]
     return {"spins": [serialize_mongo_prize_wheel_spin(spin) for spin in spins], "prizes": []}
