@@ -8,26 +8,42 @@
     <div id="buttonDiv"></div> 
 
     <script>
-        function handleCredentialResponse(response) {
-            // This is your JWT
+        async function handleCredentialResponse(response) {
             console.log("Encoded JWT ID token: " + response.credential);
             
-            // Send this to your Vercel /api/auth endpoint
-            fetch('/api/auth', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token: response.credential })
-            })
-            .then(res => res.json())
-            .then(data => alert("Logged in as: " + data.user.email))
-            .catch(err => console.error("Server error:", err));
+            try {
+                // 1. Send the token to your Vercel Backend
+                const res = await fetch('/api/auth', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: response.credential })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.success) {
+                    // 2. Success! Show a message and move to your app's dashboard
+                    alert("Logged in as: " + data.user.email);
+                    
+                    // Optional: Store non-sensitive user info in localStorage for the UI
+                    localStorage.setItem('user_name', data.user.name);
+                    
+                    // Redirect to your main app page
+                    window.location.href = "/dashboard.html"; 
+                } else {
+                    alert("Login failed: " + (data.message || "Unknown error"));
+                }
+            } catch (err) {
+                console.error("Server error:", err);
+                alert("Could not connect to the server.");
+            }
         }
 
         window.onload = function () {
             google.accounts.id.initialize({
                 client_id: "387811960660-c9aach6o1vn1uibifuodcediq2uofgqn.apps.googleusercontent.com",
                 callback: handleCredentialResponse,
-                ux_mode: "popup" // Use popup to avoid redirect origin issues
+                ux_mode: "popup" 
             });
 
             google.accounts.id.renderButton(
