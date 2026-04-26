@@ -3212,12 +3212,22 @@
         try {
           const session = await apiFetch("/api/auth/session");
           setServerUser(session.user);
-          await refreshFitness();
-        } catch {
+          try {
+            await refreshFitness();
+          } catch (error) {
+            showAuthedShell(appState.user);
+            updateHistory({ logs: [] });
+            updateSpinHistory({ spins: [] });
+            setMessage(
+              error.message || "Your account loaded, but dashboard data is still catching up.",
+              true
+            );
+          }
+        } catch (error) {
           clearStoredServerAccounts();
           showLoggedOut();
           setMessage(
-            "Your account session could not be restored from the server.",
+            error.message || "Your account session could not be restored from the server.",
             true
           );
         }

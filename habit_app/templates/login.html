@@ -167,7 +167,7 @@
                 }
             } catch (err) {
                 console.error("Server error:", err);
-                setStatus("Could not connect to the server.", true);
+                setStatus(err.message || "Could not connect to the server.", true);
             }
         }
 
