@@ -1828,6 +1828,19 @@
         }
       }
 
+      function updateCustomWorkoutAvailability() {
+        const canSaveServerWorkout = Boolean(appState.user) && !appState.user.localMode;
+
+        elements.showCustomWorkout.disabled = !canSaveServerWorkout;
+        elements.showCustomWorkout.title = canSaveServerWorkout
+          ? ""
+          : "Log into your server-backed account to save workouts across devices.";
+
+        if (!canSaveServerWorkout) {
+          toggleCustomWorkoutForm(false);
+        }
+      }
+
       async function createCustomWorkout(event) {
         event.preventDefault();
 
@@ -2008,6 +2021,7 @@
       function updateCoinDisplay(user) {
         appState.user = user;
         updateLocalCoinDisplay();
+        updateCustomWorkoutAvailability();
         updatePrizeWheelControls();
       }
 
@@ -2566,6 +2580,13 @@
       elements.steps.addEventListener("input", updatePreview);
       elements.spinWheelButton.addEventListener("click", handlePrizeWheelSpin);
       elements.showCustomWorkout.addEventListener("click", () => {
+        if (elements.showCustomWorkout.disabled) {
+          setMessage(
+            "Log into your server-backed account to save workouts across devices.",
+            true
+          );
+          return;
+        }
         toggleCustomWorkoutForm(true);
       });
       elements.cancelCustomWorkout.addEventListener("click", () => {
