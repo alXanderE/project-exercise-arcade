@@ -124,6 +124,7 @@
 
             try {
                 const loginRes = await fetch("/api/auth", {
+                    credentials: "same-origin",
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ token: response.credential })
@@ -138,6 +139,25 @@
                 }
 
                 if (loginRes.ok) {
+                    const sessionRes = await fetch("/api/auth/session", {
+                        credentials: "same-origin"
+                    });
+                    const sessionRaw = await sessionRes.text();
+                    let sessionData = {};
+
+                    try {
+                        sessionData = sessionRaw ? JSON.parse(sessionRaw) : {};
+                    } catch {
+                        throw new Error("Unexpected session response from the server.");
+                    }
+
+                    if (!sessionRes.ok) {
+                        throw new Error(
+                            sessionData.message ||
+                            "Login succeeded, but the session was not available on the main app yet."
+                        );
+                    }
+
                     setStatus("Google sign-in successful. Taking you back to the app...");
                     window.setTimeout(() => {
                         window.location.href = "/";
@@ -155,7 +175,9 @@
             setStatus("Loading Google sign-in...");
 
             try {
-                const response = await fetch("/api/auth");
+                const response = await fetch("/api/auth", {
+                    credentials: "same-origin"
+                });
                 const config = await response.json();
 
                 if (!response.ok || !config.clientId) {
