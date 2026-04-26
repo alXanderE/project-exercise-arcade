@@ -848,7 +848,10 @@ def create_custom_task_route(user):
     title = (payload.get("title") or "").strip()
     category = (payload.get("category") or "").strip()
     description = (payload.get("description") or "").strip()
-    reward = min(20, max(1, int(payload.get("coinReward") or 1)))
+    try:
+        reward = min(20, max(1, int(payload.get("coinReward") or 1)))
+    except (TypeError, ValueError):
+        return jsonify({"message": "coinReward must be a whole number."}), 400
 
     if not title or not category or not description:
         return jsonify({"message": "Add a name, category, and description."}), 400
@@ -856,7 +859,20 @@ def create_custom_task_route(user):
     if not mongo_game_enabled():
         return jsonify({"message": "MongoDB custom tasks are not enabled."}), 400
 
-    task = create_custom_task(user, title, category, description, reward)
+    try:
+        sync_sql_user_points(user)
+        task = create_custom_task(user, title, category, description, reward)
+    except Exception:
+        return (
+            jsonify(
+                {
+                    "message": (
+                        "The workout could not be saved to MongoDB right now."
+                    )
+                }
+            ),
+            500,
+        )
     return jsonify({"message": "Custom workout created.", "task": task}), 201
 
 

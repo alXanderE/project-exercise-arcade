@@ -62,7 +62,6 @@ def ensure_mongo_game_indexes():
         unique=True,
     )
     prize_wheel_spins_collection().create_index([("user_key", 1), ("created_at", -1)])
-    custom_tasks_collection().create_index([("user_key", 1), ("created_at", -1)])
 
 
 def get_user_account_state(user):
@@ -146,18 +145,14 @@ def serialize_mongo_custom_task(task):
 
 
 def list_custom_tasks(user):
-    tasks = (
-        custom_tasks_collection()
-        .find({"user_key": user_key(user)})
-        .sort("created_at", 1)
-    )
+    document = users_collection().find_one({"email": user_key(user)}) or {}
+    tasks = document.get("custom_tasks") or []
     return [serialize_mongo_custom_task(task) for task in tasks]
 
 
 def create_custom_task(user, title, category, description, coin_reward):
     document = {
         "task_id": f"custom-{secrets.token_hex(8)}",
-        "user_key": user_key(user),
         "title": title,
         "category": category,
         "description": description,
@@ -165,14 +160,23 @@ def create_custom_task(user, title, category, description, coin_reward):
         "created_at": now_utc(),
         "updated_at": now_utc(),
     }
-    custom_tasks_collection().insert_one(document)
+    users_collection().update_one(
+        {"email": user_key(user)},
+        {
+            "$push": {"custom_tasks": document},
+            "$set": {"updated_at": now_utc()},
+        },
+    )
     return serialize_mongo_custom_task(document)
 
 
 def find_custom_task(user, task_id):
-    task = custom_tasks_collection().find_one(
-        {"user_key": user_key(user), "task_id": task_id}
-    )
+    document = users_collection().find_one(
+        {"email": user_key(user), "custom_tasks.task_id": task_id},
+        {"custom_tasks.$": 1},
+    ) or {}
+    tasks = document.get("custom_tasks") or []
+    task = tasks[0] if tasks else None
     return serialize_mongo_custom_task(task) if task else None
 
 
