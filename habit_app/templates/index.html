@@ -61,7 +61,8 @@
       }
 
       button,
-      input {
+      input,
+      select {
         font: inherit;
       }
 
@@ -258,7 +259,8 @@
         gap: 6px;
       }
 
-      input {
+      input,
+      select {
         width: 100%;
         min-height: 46px;
         border: 3px solid #6a5f92;
@@ -269,7 +271,8 @@
         box-shadow: inset 3px 3px 0 #000;
       }
 
-      input:focus {
+      input:focus,
+      select:focus {
         border-color: var(--accent);
         outline: 3px solid rgba(0, 215, 255, 0.22);
       }
@@ -862,6 +865,30 @@
         flex-wrap: wrap;
       }
 
+      .workout-generator {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 3px dashed var(--line);
+      }
+
+      .workout-generator .primary-button {
+        align-self: end;
+      }
+
+      .task-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .completed-panel {
+        margin-bottom: 18px;
+      }
+
       .task-card {
         display: flex;
         flex-direction: column;
@@ -956,7 +983,8 @@
         .wheel-layout,
         .wheel-visuals,
         .game-layout,
-        .bet-grid {
+        .bet-grid,
+        .workout-generator {
           grid-template-columns: 1fr;
         }
 
@@ -1323,6 +1351,36 @@
         <p class="helper-text">
           Server tasks load automatically. Custom workouts are saved on this device.
         </p>
+        <div class="workout-generator" aria-label="Random workout generator">
+          <label>
+            <span>Workout place</span>
+            <select id="workout-location">
+              <option value="home">At home</option>
+              <option value="gym">Gym</option>
+            </select>
+          </label>
+          <label>
+            <span>Difficulty</span>
+            <select id="workout-difficulty">
+              <option value="any">Any difficulty</option>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <label>
+            <span>Workout type</span>
+            <select id="workout-type">
+              <option value="any">Any type</option>
+              <option value="cardio">Cardio</option>
+              <option value="strength">Strength</option>
+              <option value="cooldown">Cooldown/stretching</option>
+            </select>
+          </label>
+          <button class="primary-button" id="generate-workouts" type="button">
+            Generate
+          </button>
+        </div>
         <form class="custom-workout-form hidden" id="custom-workout-form">
           <label>
             <span>Workout name</span>
@@ -1367,7 +1425,21 @@
         </form>
       </section>
 
+      <div class="task-tabs" aria-label="Daily task views">
+        <button class="tab-button is-active" data-task-view="available" type="button">
+          Available
+        </button>
+        <button class="tab-button" data-task-view="completed" type="button">
+          Completed Today
+        </button>
+      </div>
       <section class="task-grid" id="task-grid"></section>
+      <section class="app-panel completed-panel hidden" id="completed-task-panel">
+        <div class="section-head">
+          <h2>Completed today</h2>
+        </div>
+        <div class="history-list" id="completed-task-list"></div>
+      </section>
 
       <section class="app-panel hidden" id="history-panel">
         <div class="section-head">
@@ -1440,12 +1512,146 @@
           displayOrder: index
         };
       });
+      const generatedWorkoutRewards = {
+        easy: 8,
+        medium: 14,
+        hard: 22
+      };
+      const workoutBlueprints = [
+        {
+          location: "home",
+          type: "cardio",
+          difficulty: "easy",
+          title: "Living Room Step Circuit",
+          description: "Complete 3 rounds of marching in place, step jacks, and easy high knees.",
+        },
+        {
+          location: "home",
+          type: "cardio",
+          difficulty: "medium",
+          title: "No Equipment Cardio Ladder",
+          description: "Move through jumping jacks, mountain climbers, and fast feet for 4 rounds.",
+        },
+        {
+          location: "home",
+          type: "cardio",
+          difficulty: "hard",
+          title: "Home HIIT Sprint Set",
+          description: "Finish 6 rounds of burpees, squat jumps, and skater hops with short rests.",
+        },
+        {
+          location: "home",
+          type: "strength",
+          difficulty: "easy",
+          title: "Bodyweight Foundation",
+          description: "Do 3 rounds of wall push-ups, chair squats, glute bridges, and dead bugs.",
+        },
+        {
+          location: "home",
+          type: "strength",
+          difficulty: "medium",
+          title: "Bodyweight Strength Circuit",
+          description: "Complete 4 rounds of push-ups, lunges, plank taps, and tempo squats.",
+        },
+        {
+          location: "home",
+          type: "strength",
+          difficulty: "hard",
+          title: "Advanced Bodyweight Burn",
+          description: "Push through pistol squat practice, decline push-ups, split jumps, and plank reaches.",
+        },
+        {
+          location: "home",
+          type: "cooldown",
+          difficulty: "easy",
+          title: "Couch Stretch Reset",
+          description: "Hold easy hamstring, hip flexor, chest, and neck stretches for 10 minutes.",
+        },
+        {
+          location: "home",
+          type: "cooldown",
+          difficulty: "medium",
+          title: "Mobility Flow",
+          description: "Flow through world's greatest stretch, cat-cow, low lunges, and shoulder openers.",
+        },
+        {
+          location: "home",
+          type: "cooldown",
+          difficulty: "hard",
+          title: "Deep Mobility Session",
+          description: "Spend focused time on pigeon pose, pancake folds, thoracic rotations, and calves.",
+        },
+        {
+          location: "gym",
+          type: "cardio",
+          difficulty: "easy",
+          title: "Treadmill Incline Walk",
+          description: "Walk 18 minutes on a gentle incline, then cool down for 4 minutes.",
+        },
+        {
+          location: "gym",
+          type: "cardio",
+          difficulty: "medium",
+          title: "Bike Interval Builder",
+          description: "Ride 10 rounds of 40 seconds hard and 80 seconds easy on the stationary bike.",
+        },
+        {
+          location: "gym",
+          type: "cardio",
+          difficulty: "hard",
+          title: "Rower Power Intervals",
+          description: "Row 8 rounds of 250 meters fast with controlled recovery between rounds.",
+        },
+        {
+          location: "gym",
+          type: "strength",
+          difficulty: "easy",
+          title: "Machine Strength Starter",
+          description: "Use leg press, chest press, seated row, and cable pulldown for 3 steady sets.",
+        },
+        {
+          location: "gym",
+          type: "strength",
+          difficulty: "medium",
+          title: "Dumbbell Full Body",
+          description: "Complete goblet squats, dumbbell bench, Romanian deadlifts, and single-arm rows.",
+        },
+        {
+          location: "gym",
+          type: "strength",
+          difficulty: "hard",
+          title: "Barbell Strength Day",
+          description: "Train squats, bench press, deadlifts, and accessory cable work with heavy effort.",
+        },
+        {
+          location: "gym",
+          type: "cooldown",
+          difficulty: "easy",
+          title: "Mat Stretch Finish",
+          description: "Use a mat for hamstrings, quads, chest, and back stretches after training.",
+        },
+        {
+          location: "gym",
+          type: "cooldown",
+          difficulty: "medium",
+          title: "Foam Roller Recovery",
+          description: "Roll calves, quads, glutes, and lats, then finish with controlled breathing.",
+        },
+        {
+          location: "gym",
+          type: "cooldown",
+          difficulty: "hard",
+          title: "Long Mobility Cooldown",
+          description: "Use bands, foam roller, and deep static holds for a full recovery block.",
+        },
+      ];
       const defaultTaskState = {
         lifetimeCoins: 0,
         completionsByDate: {},
         completionsByDateByUser: {},
         customTasks: [],
         customTasksByUser: {},
+        generatedWorkoutsByUser: {},
         localAccounts: [],
         localSessionUserId: null,
         localFitnessLogsByUser: {},
@@ -1456,6 +1662,7 @@
         user: null,
         tasks: [],
         completedTaskIds: [],
+        taskView: "available",
         settings: {
           stepsPerPoint: 250,
           dailyStepCap: 10000,
@@ -1556,6 +1763,13 @@
         historyList: document.getElementById("history-list"),
         message: document.getElementById("message"),
         taskGrid: document.getElementById("task-grid"),
+        taskTabs: Array.from(document.querySelectorAll("[data-task-view]")),
+        completedTaskPanel: document.getElementById("completed-task-panel"),
+        completedTaskList: document.getElementById("completed-task-list"),
+        workoutLocation: document.getElementById("workout-location"),
+        workoutDifficulty: document.getElementById("workout-difficulty"),
+        workoutType: document.getElementById("workout-type"),
+        generateWorkouts: document.getElementById("generate-workouts"),
         resetProgress: document.getElementById("reset-progress"),
         showCustomWorkout: document.getElementById("show-custom-workout"),
         customWorkoutForm: document.getElementById("custom-workout-form"),
@@ -1593,6 +1807,11 @@
               parsed.customTasksByUser &&
               typeof parsed.customTasksByUser === "object"
                 ? parsed.customTasksByUser
+                : {},
+            generatedWorkoutsByUser:
+              parsed.generatedWorkoutsByUser &&
+              typeof parsed.generatedWorkoutsByUser === "object"
+                ? parsed.generatedWorkoutsByUser
                 : {},
             localAccounts: Array.isArray(parsed.localAccounts)
               ? parsed.localAccounts
@@ -1693,6 +1912,138 @@
         }
 
         return [];
+      }
+
+      function workoutTypeLabel(type) {
+        if (type === "cardio") {
+          return "Cardio";
+        }
+        if (type === "strength") {
+          return "Strength";
+        }
+        return "Cooldown";
+      }
+
+      function workoutLocationLabel(location) {
+        return location === "gym" ? "Gym" : "Home";
+      }
+
+      function workoutRewardForDifficulty(difficulty) {
+        return generatedWorkoutRewards[difficulty] || generatedWorkoutRewards.medium;
+      }
+
+      function normalizeGeneratedWorkouts(tasks) {
+        return (Array.isArray(tasks) ? tasks : [])
+          .filter((task) => task && typeof task === "object")
+          .map((task) => {
+            const difficulty = ["easy", "medium", "hard"].includes(task.difficulty)
+              ? task.difficulty
+              : "medium";
+            const type = ["cardio", "strength", "cooldown"].includes(task.workoutType)
+              ? task.workoutType
+              : "strength";
+            const location = task.workoutLocation === "gym" ? "gym" : "home";
+            return {
+              id: String(task.id || ""),
+              title: String(task.title || "").trim(),
+              category: `${workoutLocationLabel(location)} ${workoutTypeLabel(type)}`,
+              description: String(task.description || "").trim(),
+              coin_reward: workoutRewardForDifficulty(difficulty),
+              difficulty,
+              workoutType: type,
+              workoutLocation: location,
+              frequency: "daily",
+              is_generated: true
+            };
+          })
+          .filter((task) => task.id && task.title && task.description);
+      }
+
+      function generatedWorkoutStorageKey(user) {
+        const userKey = userStorageKey(user) || "guest";
+        return `${userKey}:${todayIso()}`;
+      }
+
+      function generatedWorkoutsForUser(user) {
+        const key = generatedWorkoutStorageKey(user);
+        const stored =
+          taskState.generatedWorkoutsByUser &&
+          Array.isArray(taskState.generatedWorkoutsByUser[key])
+            ? taskState.generatedWorkoutsByUser[key]
+            : [];
+        return normalizeGeneratedWorkouts(stored);
+      }
+
+      function saveGeneratedWorkoutsForUser(user, workouts) {
+        const key = generatedWorkoutStorageKey(user);
+        if (!taskState.generatedWorkoutsByUser || typeof taskState.generatedWorkoutsByUser !== "object") {
+          taskState.generatedWorkoutsByUser = {};
+        }
+        taskState.generatedWorkoutsByUser[key] = normalizeGeneratedWorkouts(workouts);
+        saveTaskState(taskState);
+      }
+
+      function shuffleItems(items) {
+        const shuffled = [...items];
+        for (let index = shuffled.length - 1; index > 0; index -= 1) {
+          const swapIndex = Math.floor(Math.random() * (index + 1));
+          [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+        }
+        return shuffled;
+      }
+
+      function generateWorkoutTasks() {
+        const location = elements.workoutLocation.value;
+        const difficulty = elements.workoutDifficulty.value;
+        const type = elements.workoutType.value;
+        const matchingBlueprints = workoutBlueprints.filter((workout) => {
+          return (
+            workout.location === location &&
+            (difficulty === "any" || workout.difficulty === difficulty) &&
+            (type === "any" || workout.type === type)
+          );
+        });
+        const selected = shuffleItems(matchingBlueprints).slice(0, 4);
+        const generated = selected.map((workout, index) => ({
+          id: [
+            "generated",
+            todayIso(),
+            workout.location,
+            workout.difficulty,
+            workout.type,
+            index,
+            slugify(workout.title)
+          ].join("-"),
+          title: workout.title,
+          category: `${workoutLocationLabel(workout.location)} ${workoutTypeLabel(workout.type)}`,
+          description: workout.description,
+          coin_reward: workoutRewardForDifficulty(workout.difficulty),
+          difficulty: workout.difficulty,
+          workoutType: workout.type,
+          workoutLocation: workout.location,
+          frequency: "daily",
+          is_generated: true
+        }));
+
+        const completedIds = currentDailyCompletedIds();
+        const completedGenerated = generatedWorkoutsForUser(appState.user || guestUser())
+          .filter((task) => completedIds.includes(task.id));
+        const nextGenerated = [
+          ...completedGenerated,
+          ...generated.filter((task) => !completedIds.includes(task.id))
+        ];
+        saveGeneratedWorkoutsForUser(appState.user || guestUser(), nextGenerated);
+        appState.tasks = [
+          ...appState.tasks.filter((task) => !task.is_generated),
+          ...nextGenerated
+        ];
+        setTaskView("available");
+        renderTaskCards();
+        renderCompletedTasks();
+        updateLocalCoinDisplay();
+        setMessage(
+          `Generated ${generated.length} ${workoutLocationLabel(location).toLowerCase()} workout tasks.`
+        );
       }
 
       function calculateLevel(points) {
@@ -2598,13 +2949,46 @@
         if (appState.user && !appState.user.isGuest) {
           return appState.completedTaskIds;
         }
-        return [];
+
+        const today = todayIso();
+        const userKey = userStorageKey(appState.user || guestUser());
+        const completionsForUser =
+          userKey && taskState.completionsByDateByUser &&
+          typeof taskState.completionsByDateByUser[userKey] === "object"
+            ? taskState.completionsByDateByUser[userKey]
+            : null;
+        const ids = completionsForUser?.[today];
+        return Array.isArray(ids) ? ids : [];
       }
 
       function setCurrentDailyCompletedIds(ids) {
         if (appState.user && !appState.user.isGuest) {
           appState.completedTaskIds = ids;
+          return;
         }
+
+        const userKey = userStorageKey(appState.user || guestUser());
+        if (!userKey) {
+          return;
+        }
+
+        if (
+          !taskState.completionsByDateByUser ||
+          typeof taskState.completionsByDateByUser !== "object"
+        ) {
+          taskState.completionsByDateByUser = {};
+        }
+
+        const today = todayIso();
+        const existing =
+          typeof taskState.completionsByDateByUser[userKey] === "object"
+            ? taskState.completionsByDateByUser[userKey]
+            : {};
+        taskState.completionsByDateByUser[userKey] = {
+          ...existing,
+          [today]: ids
+        };
+        saveTaskState(taskState);
       }
 
       function rememberCompletedTask(taskId) {
@@ -2641,7 +3025,11 @@
 
         const tag = document.createElement("span");
         tag.className = "task-tag";
-        tag.textContent = task.is_custom ? `${task.category} custom` : task.category;
+        tag.textContent = task.is_generated
+          ? `${task.category} ${task.difficulty}`
+          : task.is_custom
+            ? `${task.category} custom`
+            : task.category;
 
         const reward = document.createElement("span");
         reward.className = "reward-badge";
@@ -2686,6 +3074,50 @@
 
           elements.taskGrid.append(taskCard);
           updateTaskCard(taskCard);
+        }
+      }
+
+      function renderCompletedTasks() {
+        if (!elements.completedTaskList) {
+          return;
+        }
+
+        const completedIds = currentDailyCompletedIds();
+        const tasksById = new Map(activeTasksForCurrentUser().map((task) => [task.id, task]));
+        elements.completedTaskList.innerHTML = "";
+
+        if (!completedIds.length) {
+          const empty = document.createElement("p");
+          empty.className = "history-empty";
+          empty.textContent = "No daily tasks completed yet today.";
+          elements.completedTaskList.append(empty);
+          return;
+        }
+
+        for (const taskId of completedIds) {
+          const task = tasksById.get(taskId);
+          const item = document.createElement("article");
+          item.className = "history-item";
+          item.innerHTML = `
+            <div class="history-main">
+              <strong>${task ? task.title : "Completed workout"}</strong>
+              <span class="history-date">${task ? task.category : todayIso()}</span>
+            </div>
+            <span class="history-points">+${formatNumber(task?.coin_reward || 0)}</span>
+          `;
+          elements.completedTaskList.append(item);
+        }
+      }
+
+      function setTaskView(view) {
+        appState.taskView = view;
+        elements.taskTabs.forEach((tab) => {
+          tab.classList.toggle("is-active", tab.dataset.taskView === view);
+        });
+        elements.taskGrid.classList.toggle("hidden", view !== "available");
+        elements.completedTaskPanel.classList.toggle("hidden", view !== "completed");
+        if (view === "completed") {
+          renderCompletedTasks();
         }
       }
 
@@ -2774,6 +3206,7 @@
 
       function updateTaskCards() {
         Array.from(document.querySelectorAll(".task-card")).forEach(updateTaskCard);
+        renderCompletedTasks();
       }
 
       function setMessage(text, isError = false) {
@@ -2911,6 +3344,22 @@
         button.disabled = true;
         button.textContent = "Saving...";
 
+        if (task.is_generated && (!appState.user || appState.user.isGuest)) {
+          rememberCompletedTask(task.id);
+          appState.user = {
+            ...(appState.user || guestUser()),
+            points: Math.max(0, (appState.user?.points || 0) + task.coin_reward),
+            level: calculateLevel((appState.user?.points || 0) + task.coin_reward)
+          };
+          updateCoinDisplay(appState.user);
+          updateTaskCard(taskCard);
+          renderCompletedTasks();
+          setMessage(
+            `Completed ${task.title}. +${formatNumber(task.coin_reward)} local coins.`
+          );
+          return;
+        }
+
         if (!appState.user || appState.user.isGuest) {
           updateTaskCard(taskCard);
           setMessage(`Log in to save ${task.title} to your account.`, true);
@@ -2922,7 +3371,16 @@
             `/api/tasks/daily/${encodeURIComponent(task.id)}/complete`,
             {
               method: "POST",
-              body: JSON.stringify({ localDate: todayIso() })
+              body: JSON.stringify({
+                localDate: todayIso(),
+                generatedWorkout: task.is_generated
+                  ? {
+                      difficulty: task.difficulty,
+                      workoutType: task.workoutType,
+                      workoutLocation: task.workoutLocation
+                    }
+                  : undefined
+              })
             }
           );
           rememberCompletedTask(task.id);
@@ -3296,6 +3754,12 @@
         });
         updateHistory({ logs: [] });
         updateSpinHistory({ spins: [] });
+        appState.tasks = [
+          ...appState.tasks.filter((task) => !task.is_generated),
+          ...generatedWorkoutsForUser(appState.user)
+        ];
+        renderTaskCards();
+        renderCompletedTasks();
         updateTaskCards();
         showAuthed();
       }
@@ -3368,9 +3832,11 @@
             userCustomTasks = [];
           }
         }
-        appState.tasks = [...serverTasks, ...userCustomTasks];
+        const generatedTasks = generatedWorkoutsForUser(appState.user || guestUser());
+        appState.tasks = [...serverTasks, ...userCustomTasks, ...generatedTasks];
         saveTaskState(taskState);
         renderTaskCards();
+        renderCompletedTasks();
         updateLocalCoinDisplay();
       }
 
@@ -3494,6 +3960,9 @@
       elements.resetProgress.addEventListener("click", () => {
         if (appState.user && !appState.user.isGuest) {
           delete taskState.completionsByDate[todayIso()];
+          appState.completedTaskIds = [];
+        } else {
+          setCurrentDailyCompletedIds([]);
         }
         saveTaskState(taskState);
         updateTaskCards();
@@ -3530,6 +3999,10 @@
       ].forEach((input) => {
         input.addEventListener("input", updateDiceRewardPreview);
       });
+      elements.taskTabs.forEach((tab) => {
+        tab.addEventListener("click", () => setTaskView(tab.dataset.taskView));
+      });
+      elements.generateWorkouts.addEventListener("click", generateWorkoutTasks);
       elements.showCustomWorkout.addEventListener("click", () => {
         if (elements.showCustomWorkout.dataset.canSaveServerWorkout !== "true") {
           setMessage(
@@ -3547,6 +4020,7 @@
 
       setAuthMode("login");
       setArcadeGame("wheel");
+      setTaskView("available");
       resetBlackjackTable();
       renderDieFace(elements.dieOneFace, null);
       renderDieFace(elements.dieTwoFace, null);

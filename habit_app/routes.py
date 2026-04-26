@@ -654,6 +654,15 @@ def draw_blackjack_card(state):
     return state["deck"].pop()
 
 
+def generated_workout_reward(difficulty):
+    rewards = {
+        "easy": 8,
+        "medium": 14,
+        "hard": 22,
+    }
+    return rewards.get(str(difficulty or "").strip().lower(), rewards["medium"])
+
+
 def dice_reward_for_bet(kind, amount):
     if kind == "parity":
         return int(amount) // 4
@@ -713,6 +722,21 @@ def daily_task_completions(user):
     if mongo_game_enabled():
         sync_sql_user_points(user)
         result = get_daily_task_completions(user, local_date.isoformat())
+        generated_completions = DailyTaskCompletion.query.filter(
+            DailyTaskCompletion.user_id == user.id,
+            DailyTaskCompletion.completed_on == local_date,
+            DailyTaskCompletion.task_id.like("generated-%"),
+        ).all()
+        result["completedTaskIds"] = list(
+            dict.fromkeys(
+                result.get("completedTaskIds", []) +
+                [completion.task_id for completion in generated_completions]
+            )
+        )
+        result["completions"] = result.get("completions", []) + [
+            serialize_daily_task_completion(completion)
+            for completion in generated_completions
+        ]
         result["user"] = serialize_user(user)
         return jsonify(result)
 
@@ -745,6 +769,57 @@ def complete_daily_task(user, task_id=None):
     local_date = requested_local_date()
     if local_date is None:
         return jsonify({"message": "localDate must use YYYY-MM-DD format."}), 400
+
+    generated_workout = payload.get("generatedWorkout") or {}
+    is_generated_workout = (
+        resolved_task_id.startswith("generated-") and
+        isinstance(generated_workout, dict)
+    )
+
+    if is_generated_workout:
+        if mongo_game_enabled():
+            sync_sql_user_points(user)
+        reward = generated_workout_reward(generated_workout.get("difficulty"))
+        existing_completion = DailyTaskCompletion.query.filter_by(
+            user_id=user.id,
+            task_id=resolved_task_id,
+            completed_on=local_date,
+        ).first()
+        if existing_completion:
+            return (
+                jsonify(
+                    {
+                        "message": "Daily task already completed today.",
+                        "completion": serialize_daily_task_completion(existing_completion),
+                        "user": serialize_user(user),
+                    }
+                ),
+                400,
+            )
+
+        completion = DailyTaskCompletion(
+            user_id=user.id,
+            task_id=resolved_task_id,
+            completed_on=local_date,
+            points_awarded=reward,
+        )
+        user.points += reward
+        user.level = calculate_level(user.points)
+        db.session.add(completion)
+        if mongo_game_enabled():
+            update_user_account_state(user, points=user.points, level=user.level)
+        db.session.commit()
+
+        return (
+            jsonify(
+                {
+                    "message": "Generated workout completed.",
+                    "completion": serialize_daily_task_completion(completion),
+                    "user": serialize_user(user),
+                }
+            ),
+            201,
+        )
 
     if mongo_game_enabled():
         try:
