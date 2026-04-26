@@ -4,6 +4,7 @@ from flask import Flask, render_template, send_from_directory
 
 from .extensions import db
 from .mongo_auth import ensure_mongo_auth_indexes
+from .mongo_game import ensure_mongo_game_indexes
 from .routes import api
 from .schema import ensure_sqlite_schema
 
@@ -69,6 +70,7 @@ def create_app():
         db.create_all()
         ensure_sqlite_schema()
         ensure_mongo_auth_indexes()
+        ensure_mongo_game_indexes()
 
     app.register_blueprint(api, url_prefix="/api")
 

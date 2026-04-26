@@ -112,6 +112,8 @@ def create_auth_user(email, display_name, password_hash, sql_user_id):
         "display_name_lower": str(display_name).strip().lower(),
         "password_hash": password_hash,
         "sql_user_id": sql_user_id,
+        "points": 0,
+        "level": 1,
         "created_at": timestamp,
         "updated_at": timestamp,
     }
@@ -140,4 +142,3 @@ def update_auth_user(email, **updates):
         {"$set": update_fields},
     )
     return find_auth_user_by_email(update_fields.get("email", normalized_email))
-

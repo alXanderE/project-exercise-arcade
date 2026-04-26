@@ -22,6 +22,19 @@ from .mongo_auth import (
     mongo_auth_unavailable_reason,
     update_auth_user,
 )
+from .mongo_game import (
+    complete_daily_task as complete_daily_task_mongo,
+    create_custom_task,
+    fitness_history as fitness_history_mongo,
+    fitness_summary as fitness_summary_mongo,
+    get_daily_task_completions,
+    list_custom_tasks,
+    mongo_game_enabled,
+    prize_wheel_history as prize_wheel_history_mongo,
+    record_prize_wheel_spin,
+    save_fitness_steps as save_fitness_steps_mongo,
+    sync_sql_user_points,
+)
 from .models import (
     FitnessLog,
     Habit,
@@ -142,6 +155,8 @@ def sync_sql_user_from_auth_document(auth_user):
             email=auth_user["email"],
             display_name=auth_user["display_name"],
             password_hash=auth_user["password_hash"],
+            points=int(auth_user.get("points") or 0),
+            level=int(auth_user.get("level") or 1),
         )
         db.session.add(user)
         db.session.commit()
@@ -149,6 +164,8 @@ def sync_sql_user_from_auth_document(auth_user):
         user.email = auth_user["email"]
         user.display_name = auth_user["display_name"]
         user.password_hash = auth_user["password_hash"]
+        user.points = int(auth_user.get("points") or user.points or 0)
+        user.level = int(auth_user.get("level") or user.level or 1)
         db.session.commit()
 
     if auth_user.get("sql_user_id") != user.id and mongo_auth_enabled():
@@ -422,6 +439,12 @@ def daily_tasks():
 @api.get("/tasks/daily/completions")
 @require_auth
 def daily_task_completions(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+        result = get_daily_task_completions(user, date.today().isoformat())
+        result["user"] = serialize_user(user)
+        return jsonify(result)
+
     today = date.today()
     completions = DailyTaskCompletion.query.filter_by(
         user_id=user.id,
@@ -443,6 +466,19 @@ def daily_task_completions(user):
 @api.post("/tasks/daily/<task_id>/complete")
 @require_auth
 def complete_daily_task(user, task_id):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+        payload, error_message, status_code = complete_daily_task_mongo(
+            user,
+            task_id,
+            date.today().isoformat(),
+            calculate_level,
+        )
+        if error_message:
+            return jsonify({"message": error_message}), status_code
+        payload["user"] = serialize_user(user)
+        return jsonify(payload), status_code
+
     task = find_daily_task(task_id)
     if not task:
         return jsonify({"message": "Daily task not found."}), 404
@@ -492,6 +528,37 @@ def complete_daily_task(user, task_id):
 @api.post("/fitness/steps")
 @require_auth
 def log_fitness_steps(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+        payload = request.get_json(silent=True) or {}
+
+        try:
+            logged_on = normalize_date(payload.get("loggedOn")).isoformat()
+        except ValueError:
+            return jsonify({"message": "loggedOn must use YYYY-MM-DD format."}), 400
+
+        try:
+            steps = int(payload.get("steps"))
+        except (TypeError, ValueError):
+            return jsonify({"message": "steps must be a whole number."}), 400
+
+        if steps < 0:
+            return jsonify({"message": "steps cannot be negative."}), 400
+
+        notes = (payload.get("notes") or "").strip() or None
+        result = save_fitness_steps_mongo(
+            user,
+            logged_on=logged_on,
+            steps_to_add=steps,
+            notes=notes,
+            calculate_points_fn=calculate_fitness_points,
+            calculate_level_fn=calculate_level,
+        )
+        result["message"] = "Fitness steps logged."
+        result["rewardSettings"] = fitness_reward_settings()
+        result["user"] = serialize_user(user)
+        return jsonify(result), 201 if result["created"] else 200
+
     payload = request.get_json(silent=True) or {}
 
     try:
@@ -555,6 +622,12 @@ def log_fitness_steps(user):
 @api.get("/fitness/history")
 @require_auth
 def fitness_history(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+        result = fitness_history_mongo(user)
+        result["rewardSettings"] = fitness_reward_settings()
+        return jsonify(result)
+
     logs = (
         FitnessLog.query.filter_by(user_id=user.id)
         .order_by(FitnessLog.logged_on.desc(), FitnessLog.created_at.desc())
@@ -573,6 +646,16 @@ def fitness_history(user):
 @api.get("/fitness/summary")
 @require_auth
 def fitness_summary(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+        result = fitness_summary_mongo(
+            user,
+            current_app.config["FITNESS_DAILY_GOAL_STEPS"],
+        )
+        result["rewardSettings"] = fitness_reward_settings()
+        result["user"] = serialize_user(user)
+        return jsonify(result)
+
     logs = FitnessLog.query.filter_by(user_id=user.id).all()
     today = date.today()
     today_log = next((log for log in logs if log.logged_on == today), None)
@@ -600,6 +683,9 @@ def fitness_summary(user):
 @api.get("/arcade/prize-wheel")
 @require_auth
 def get_prize_wheel(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+
     slices = active_prize_wheel_slices()
     return jsonify(
         {
@@ -613,6 +699,9 @@ def get_prize_wheel(user):
 @api.post("/arcade/prize-wheel/spin")
 @require_auth
 def spin_prize_wheel(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+
     spin_cost = current_app.config["PRIZE_WHEEL_SPIN_COST"]
     if user.points < spin_cost:
         return (
@@ -634,29 +723,48 @@ def spin_prize_wheel(user):
             503,
         )
 
-    user.points -= spin_cost
-    user.level = calculate_level(user.points)
-
     wheel_rule = wheel_rule_for_display_order(winning_slice.display_order)
-    spin = PrizeWheelSpin(
-        user_id=user.id,
-        slice_id=winning_slice.id,
-        points_spent=spin_cost,
-        reward_type=wheel_rule["reward_type"],
-        reward_value=wheel_rule["reward_value"],
-        prize_label=wheel_rule["label"],
-    )
-    db.session.add(spin)
-    db.session.flush()
+    if mongo_game_enabled():
+        reward_delta = calculate_spin_reward(
+            spin_cost,
+            wheel_rule["reward_type"],
+            wheel_rule["reward_value"],
+        )
+        result = record_prize_wheel_spin(
+            user,
+            slice_id=winning_slice.id,
+            prize_label=wheel_rule["label"],
+            reward_type=wheel_rule["reward_type"],
+            reward_value=wheel_rule["reward_value"],
+            points_spent=spin_cost,
+            reward_delta=reward_delta,
+            calculate_level_fn=calculate_level,
+        )
+        spin = result["spin"]
+        prize = None
+    else:
+        user.points -= spin_cost
+        user.level = calculate_level(user.points)
 
-    prize = apply_prize_wheel_reward(user, spin)
-    user.level = calculate_level(user.points)
-    db.session.commit()
+        spin = PrizeWheelSpin(
+            user_id=user.id,
+            slice_id=winning_slice.id,
+            points_spent=spin_cost,
+            reward_type=wheel_rule["reward_type"],
+            reward_value=wheel_rule["reward_value"],
+            prize_label=wheel_rule["label"],
+        )
+        db.session.add(spin)
+        db.session.flush()
+
+        prize = apply_prize_wheel_reward(user, spin)
+        user.level = calculate_level(user.points)
+        db.session.commit()
 
     return jsonify(
         {
             "message": "Prize wheel spun.",
-            "spin": serialize_prize_wheel_spin(spin),
+            "spin": spin if mongo_game_enabled() else serialize_prize_wheel_spin(spin),
             "winningSlice": serialize_prize_wheel_slice(winning_slice),
             "prize": serialize_user_prize(prize) if prize else None,
             "user": serialize_user(user),
@@ -667,6 +775,10 @@ def spin_prize_wheel(user):
 @api.get("/arcade/prize-wheel/history")
 @require_auth
 def prize_wheel_history(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
+        return jsonify(prize_wheel_history_mongo(user))
+
     spins = (
         PrizeWheelSpin.query.filter_by(user_id=user.id)
         .order_by(PrizeWheelSpin.created_at.desc())
@@ -685,6 +797,35 @@ def prize_wheel_history(user):
             "prizes": [serialize_user_prize(prize) for prize in prizes],
         }
     )
+
+
+@api.get("/tasks/custom")
+@require_auth
+def list_custom_tasks_route(user):
+    if not mongo_game_enabled():
+        return jsonify({"tasks": []})
+
+    sync_sql_user_points(user)
+    return jsonify({"tasks": list_custom_tasks(user), "user": serialize_user(user)})
+
+
+@api.post("/tasks/custom")
+@require_auth
+def create_custom_task_route(user):
+    payload = request.get_json(silent=True) or {}
+    title = (payload.get("title") or "").strip()
+    category = (payload.get("category") or "").strip()
+    description = (payload.get("description") or "").strip()
+    reward = min(20, max(1, int(payload.get("coinReward") or 1)))
+
+    if not title or not category or not description:
+        return jsonify({"message": "Add a name, category, and description."}), 400
+
+    if not mongo_game_enabled():
+        return jsonify({"message": "MongoDB custom tasks are not enabled."}), 400
+
+    task = create_custom_task(user, title, category, description, reward)
+    return jsonify({"message": "Custom workout created.", "task": task}), 201
 
 
 @api.post("/auth/signup")
@@ -817,6 +958,8 @@ def logout(user):
 @api.get("/auth/session")
 @require_auth
 def session(user):
+    if mongo_game_enabled():
+        sync_sql_user_points(user)
     return jsonify({"user": serialize_user(user)})
 
 

@@ -1856,16 +1856,36 @@
           is_custom: true
         };
 
-        const userKey = userStorageKey(appState.user);
-        if (!userKey) {
+        if (!appState.user) {
           setMessage("Choose an account before saving a custom workout.", true);
           return;
         }
 
+        if (!appState.user.localMode) {
+          try {
+            const result = await apiFetch("/api/tasks/custom", {
+              method: "POST",
+              body: JSON.stringify({
+                title,
+                category,
+                description,
+                coinReward: reward
+              })
+            });
+            await applyTasksForCurrentUser();
+            toggleCustomWorkoutForm(false);
+            setMessage(`${result.task.title} was added to your daily routines.`);
+            return;
+          } catch (error) {
+            setMessage(error.message, true);
+            return;
+          }
+        }
+
+        const userKey = userStorageKey(appState.user);
         if (!taskState.customTasksByUser || typeof taskState.customTasksByUser !== "object") {
           taskState.customTasksByUser = {};
         }
-
         const userTasks = customTasksForUser(appState.user);
         userTasks.push(customTask);
         taskState.customTasksByUser[userKey] = userTasks;
@@ -2011,7 +2031,7 @@
         button.disabled = true;
         button.textContent = "Saving...";
 
-        if (!appState.user || appState.user.localMode || task.is_custom) {
+        if (!appState.user || appState.user.localMode) {
           rememberCompletedTask(task.id);
           taskState.lifetimeCoins += task.coin_reward;
           if (appState.user?.localMode) {
@@ -2347,7 +2367,17 @@
           serverTasks = fallbackDailyTasks;
         }
 
-        const userCustomTasks = customTasksForUser(appState.user);
+        let userCustomTasks = [];
+        if (appState.user && !appState.user.localMode) {
+          try {
+            const result = await apiFetch("/api/tasks/custom");
+            userCustomTasks = Array.isArray(result.tasks) ? result.tasks : [];
+          } catch {
+            userCustomTasks = [];
+          }
+        } else {
+          userCustomTasks = customTasksForUser(appState.user);
+        }
         appState.tasks = [...serverTasks, ...userCustomTasks];
         saveTaskState(taskState);
         renderTaskCards();
