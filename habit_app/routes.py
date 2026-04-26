@@ -654,6 +654,16 @@ def draw_blackjack_card(state):
     return state["deck"].pop()
 
 
+def dice_reward_for_bet(kind, amount):
+    if kind == "parity":
+        return int(amount) // 4
+    if kind in {"die_one", "die_two"}:
+        return int(amount) // 2
+    if kind == "total":
+        return int(amount)
+    return 0
+
+
 def apply_prize_wheel_reward(user, spin):
     if spin.reward_type == "spin_multiplier":
         user.points = max(
@@ -1267,23 +1277,19 @@ def roll_dice_game(user):
 
     for bet in bets:
         won = False
-        multiplier = 0
         if bet["kind"] == "die_one":
             won = die_one == bet["value"]
-            multiplier = 6
         elif bet["kind"] == "die_two":
             won = die_two == bet["value"]
-            multiplier = 6
         elif bet["kind"] == "total":
             won = total == bet["value"]
-            multiplier = 10
         elif bet["kind"] == "parity":
             won = parity == bet["value"]
-            multiplier = 2
 
-        payout = bet["amount"] * multiplier if won else 0
+        reward = dice_reward_for_bet(bet["kind"], bet["amount"])
+        payout = bet["amount"] + reward if won else 0
         winnings += payout
-        results.append({**bet, "won": won, "payout": payout})
+        results.append({**bet, "won": won, "reward": reward, "payout": payout})
 
     apply_point_delta(user, -total_wager + winnings)
 
