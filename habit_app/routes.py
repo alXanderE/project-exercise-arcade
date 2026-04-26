@@ -288,6 +288,9 @@ def serialize_fitness_log(log):
         "id": log.id,
         "loggedOn": log.logged_on.isoformat(),
         "steps": log.steps,
+        "workoutMinutes": getattr(log, "workout_minutes", 0) or 0,
+        "activeCalories": getattr(log, "active_calories", 0) or 0,
+        "distanceMiles": getattr(log, "distance_miles", 0) or 0,
         "source": log.source,
         "pointsAwarded": log.points_awarded,
         "notes": log.notes,
@@ -463,12 +466,21 @@ def update_habit_streak(habit, completed_on):
     habit.last_completed_on = completed_on
 
 
-def calculate_fitness_points(steps):
+def calculate_fitness_points(steps, workout_minutes=0, active_calories=0, distance_miles=0):
     capped_steps = min(steps, current_app.config["FITNESS_DAILY_STEP_CAP"])
     points = capped_steps // current_app.config["FITNESS_STEPS_PER_POINT"]
 
     if steps >= current_app.config["FITNESS_DAILY_GOAL_STEPS"]:
         points += current_app.config["FITNESS_DAILY_GOAL_BONUS"]
+
+    points += max(0, int(workout_minutes)) * current_app.config["FITNESS_WORKOUT_MINUTE_POINTS"]
+    active_calories_per_point = current_app.config["FITNESS_ACTIVE_CALORIES_PER_POINT"]
+    if active_calories_per_point > 0:
+        points += max(0, int(active_calories)) // active_calories_per_point
+
+    distance_miles_per_point = current_app.config["FITNESS_DISTANCE_MILES_PER_POINT"]
+    if distance_miles_per_point > 0:
+        points += int(max(0, float(distance_miles)) // distance_miles_per_point)
 
     return points
 
@@ -479,7 +491,34 @@ def fitness_reward_settings():
         "dailyStepCap": current_app.config["FITNESS_DAILY_STEP_CAP"],
         "dailyGoalSteps": current_app.config["FITNESS_DAILY_GOAL_STEPS"],
         "dailyGoalBonus": current_app.config["FITNESS_DAILY_GOAL_BONUS"],
+        "workoutMinutePoints": current_app.config["FITNESS_WORKOUT_MINUTE_POINTS"],
+        "activeCaloriesPerPoint": current_app.config["FITNESS_ACTIVE_CALORIES_PER_POINT"],
+        "distanceMilesPerPoint": current_app.config["FITNESS_DISTANCE_MILES_PER_POINT"],
     }
+
+
+def parse_nonnegative_int(value, field_name, default=0):
+    if value in (None, ""):
+        return default
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} must be a whole number.")
+    if parsed < 0:
+        raise ValueError(f"{field_name} cannot be negative.")
+    return parsed
+
+
+def parse_nonnegative_float(value, field_name, default=0):
+    if value in (None, ""):
+        return default
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field_name} must be a number.")
+    if parsed < 0:
+        raise ValueError(f"{field_name} cannot be negative.")
+    return parsed
 
 
 def ensure_default_prize_wheel_slices():
@@ -895,19 +934,33 @@ def log_fitness_steps(user):
             return jsonify({"message": "loggedOn must use YYYY-MM-DD format."}), 400
 
         try:
-            steps = int(payload.get("steps"))
-        except (TypeError, ValueError):
-            return jsonify({"message": "steps must be a whole number."}), 400
-
-        if steps < 0:
-            return jsonify({"message": "steps cannot be negative."}), 400
+            steps = parse_nonnegative_int(payload.get("steps"), "steps")
+            workout_minutes = parse_nonnegative_int(
+                payload.get("workoutMinutes"),
+                "workoutMinutes",
+            )
+            active_calories = parse_nonnegative_int(
+                payload.get("activeCalories"),
+                "activeCalories",
+            )
+            distance_miles = parse_nonnegative_float(
+                payload.get("distanceMiles"),
+                "distanceMiles",
+            )
+        except ValueError as error:
+            return jsonify({"message": str(error)}), 400
 
         notes = (payload.get("notes") or "").strip() or None
+        source = (payload.get("source") or "manual").strip()[:30] or "manual"
         try:
             result = save_fitness_steps_mongo(
                 user,
                 logged_on=logged_on,
                 steps_to_add=steps,
+                workout_minutes_to_add=workout_minutes,
+                active_calories_to_add=active_calories,
+                distance_miles_to_add=distance_miles,
+                source=source,
                 notes=notes,
                 calculate_points_fn=calculate_fitness_points,
                 calculate_level_fn=calculate_level,
@@ -927,25 +980,43 @@ def log_fitness_steps(user):
         return jsonify({"message": "loggedOn must use YYYY-MM-DD format."}), 400
 
     try:
-        steps = int(payload.get("steps"))
-    except (TypeError, ValueError):
-        return jsonify({"message": "steps must be a whole number."}), 400
-
-    if steps < 0:
-        return jsonify({"message": "steps cannot be negative."}), 400
+        steps = parse_nonnegative_int(payload.get("steps"), "steps")
+        workout_minutes = parse_nonnegative_int(
+            payload.get("workoutMinutes"),
+            "workoutMinutes",
+        )
+        active_calories = parse_nonnegative_int(
+            payload.get("activeCalories"),
+            "activeCalories",
+        )
+        distance_miles = parse_nonnegative_float(
+            payload.get("distanceMiles"),
+            "distanceMiles",
+        )
+    except ValueError as error:
+        return jsonify({"message": str(error)}), 400
 
     notes = (payload.get("notes") or "").strip() or None
+    source = (payload.get("source") or "manual").strip()[:30] or "manual"
 
     log = FitnessLog.query.filter_by(user_id=user.id, logged_on=logged_on).first()
     created = log is None
 
     if created:
-        points_awarded = calculate_fitness_points(steps)
+        points_awarded = calculate_fitness_points(
+            steps,
+            workout_minutes=workout_minutes,
+            active_calories=active_calories,
+            distance_miles=distance_miles,
+        )
         log = FitnessLog(
             user_id=user.id,
             logged_on=logged_on,
             steps=steps,
-            source="manual",
+            workout_minutes=workout_minutes,
+            active_calories=active_calories,
+            distance_miles=distance_miles,
+            source=source,
             points_awarded=points_awarded,
             notes=notes,
         )
@@ -953,10 +1024,21 @@ def log_fitness_steps(user):
         points_delta = points_awarded
     else:
         total_steps = log.steps + steps
-        points_awarded = calculate_fitness_points(total_steps)
+        total_workout_minutes = (log.workout_minutes or 0) + workout_minutes
+        total_active_calories = (log.active_calories or 0) + active_calories
+        total_distance_miles = (log.distance_miles or 0) + distance_miles
+        points_awarded = calculate_fitness_points(
+            total_steps,
+            workout_minutes=total_workout_minutes,
+            active_calories=total_active_calories,
+            distance_miles=total_distance_miles,
+        )
         points_delta = points_awarded - log.points_awarded
         log.steps = total_steps
-        log.source = "manual"
+        log.workout_minutes = total_workout_minutes
+        log.active_calories = total_active_calories
+        log.distance_miles = total_distance_miles
+        log.source = source
         log.points_awarded = points_awarded
         log.notes = notes
 
@@ -1026,6 +1108,15 @@ def fitness_summary(user):
             "stats": {
                 "totalLogs": len(logs),
                 "totalSteps": sum(log.steps for log in logs),
+                "totalWorkoutMinutes": sum(
+                    (log.workout_minutes or 0) for log in logs
+                ),
+                "totalActiveCalories": sum(
+                    (log.active_calories or 0) for log in logs
+                ),
+                "totalDistanceMiles": sum(
+                    (log.distance_miles or 0) for log in logs
+                ),
                 "totalPointsAwarded": sum(log.points_awarded for log in logs),
                 "bestDaySteps": max((log.steps for log in logs), default=0),
                 "goalDays": sum(

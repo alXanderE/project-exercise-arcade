@@ -2472,6 +2472,9 @@
               id: `${user.id}-${log.loggedOn}-${index}`,
               loggedOn: log.loggedOn,
               steps: log.steps,
+              workoutMinutes: log.workoutMinutes || 0,
+              activeCalories: log.activeCalories || 0,
+              distanceMiles: log.distanceMiles || 0,
               source: "local",
               pointsAwarded: log.pointsAwarded,
               notes: log.notes,
@@ -2491,13 +2494,25 @@
         const storageKey = userStorageKey(currentUser);
         const index = logs.findIndex((log) => log.loggedOn === payload.loggedOn);
         const previousSteps = index >= 0 ? logs[index].steps : 0;
+        const previousWorkoutMinutes = index >= 0 ? logs[index].workoutMinutes || 0 : 0;
+        const previousActiveCalories = index >= 0 ? logs[index].activeCalories || 0 : 0;
+        const previousDistanceMiles = index >= 0 ? logs[index].distanceMiles || 0 : 0;
         const totalSteps = previousSteps + payload.steps;
+        const totalWorkoutMinutes =
+          previousWorkoutMinutes + (payload.workoutMinutes || 0);
+        const totalActiveCalories =
+          previousActiveCalories + (payload.activeCalories || 0);
+        const totalDistanceMiles =
+          previousDistanceMiles + (payload.distanceMiles || 0);
         const pointsAwarded = calculatePreview(totalSteps);
         const previousPoints = index >= 0 ? logs[index].pointsAwarded : 0;
         const pointsDelta = pointsAwarded - previousPoints;
         const nextLog = {
           loggedOn: payload.loggedOn,
           steps: totalSteps,
+          workoutMinutes: totalWorkoutMinutes,
+          activeCalories: totalActiveCalories,
+          distanceMiles: totalDistanceMiles,
           pointsAwarded,
           notes: payload.notes || "",
           source: "local"
@@ -3405,7 +3420,10 @@
         elements.todayEarned.textContent = formatNumber(summary.today?.pointsAwarded);
         elements.goalDays.textContent = formatNumber(summary.stats?.goalDays);
         elements.totalSteps.textContent =
-          `${formatNumber(summary.stats?.totalSteps)} total steps`;
+          `${formatNumber(summary.stats?.totalSteps)} steps` +
+          ` | ${formatNumber(summary.stats?.totalWorkoutMinutes)} workout min` +
+          ` | ${formatNumber(summary.stats?.totalActiveCalories)} calories` +
+          ` | ${Number(summary.stats?.totalDistanceMiles || 0).toFixed(2)} mi`;
         elements.goalLabel.textContent =
           `${formatNumber(appState.settings.dailyGoalSteps)} step daily goal`;
 
@@ -3693,7 +3711,12 @@
           item.innerHTML = `
             <div class="history-main">
               <strong>${formatNumber(log.steps)} steps</strong>
-              <span class="history-date">${log.loggedOn}</span>
+              <span class="history-date">
+                ${log.loggedOn}
+                ${formatNumber(log.workoutMinutes || 0)} min
+                ${formatNumber(log.activeCalories || 0)} cal
+                ${Number(log.distanceMiles || 0).toFixed(2)} mi
+              </span>
             </div>
             <span class="history-points">+${formatNumber(log.pointsAwarded)}</span>
           `;

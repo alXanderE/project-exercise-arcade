@@ -111,6 +111,9 @@ def serialize_mongo_fitness_log(log):
         "id": item_identifier(log),
         "loggedOn": log["logged_on"],
         "steps": int(log["steps"]),
+        "workoutMinutes": int(log.get("workout_minutes", 0) or 0),
+        "activeCalories": int(log.get("active_calories", 0) or 0),
+        "distanceMiles": float(log.get("distance_miles", 0) or 0),
         "source": log.get("source", "manual"),
         "pointsAwarded": int(log.get("points_awarded", 0)),
         "notes": log.get("notes"),
@@ -270,6 +273,10 @@ def save_fitness_steps(
     *,
     logged_on,
     steps_to_add,
+    workout_minutes_to_add=0,
+    active_calories_to_add=0,
+    distance_miles_to_add=0,
+    source="manual",
     notes,
     calculate_points_fn,
     calculate_level_fn,
@@ -283,9 +290,22 @@ def save_fitness_steps(
     created = existing is None
 
     previous_steps = int(existing.get("steps", 0)) if existing else 0
+    previous_workout_minutes = int(existing.get("workout_minutes", 0)) if existing else 0
+    previous_active_calories = int(existing.get("active_calories", 0)) if existing else 0
+    previous_distance_miles = float(existing.get("distance_miles", 0) or 0) if existing else 0
     previous_points = int(existing.get("points_awarded", 0)) if existing else 0
     total_steps = previous_steps + int(steps_to_add)
-    points_awarded = int(calculate_points_fn(total_steps))
+    total_workout_minutes = previous_workout_minutes + int(workout_minutes_to_add)
+    total_active_calories = previous_active_calories + int(active_calories_to_add)
+    total_distance_miles = previous_distance_miles + float(distance_miles_to_add)
+    points_awarded = int(
+        calculate_points_fn(
+            total_steps,
+            workout_minutes=total_workout_minutes,
+            active_calories=total_active_calories,
+            distance_miles=total_distance_miles,
+        )
+    )
     points_delta = points_awarded - previous_points
     timestamp = now_utc()
 
@@ -294,7 +314,10 @@ def save_fitness_steps(
             "id": secrets.token_hex(12),
             "logged_on": logged_on,
             "steps": total_steps,
-            "source": "manual",
+            "workout_minutes": total_workout_minutes,
+            "active_calories": total_active_calories,
+            "distance_miles": total_distance_miles,
+            "source": source,
             "points_awarded": points_awarded,
             "notes": notes,
             "created_at": timestamp,
@@ -305,7 +328,10 @@ def save_fitness_steps(
         log = {
             **existing,
             "steps": total_steps,
-            "source": "manual",
+            "workout_minutes": total_workout_minutes,
+            "active_calories": total_active_calories,
+            "distance_miles": total_distance_miles,
+            "source": source,
             "points_awarded": points_awarded,
             "notes": notes,
             "updated_at": timestamp,
@@ -359,6 +385,15 @@ def fitness_summary(user, daily_goal_steps):
         "stats": {
             "totalLogs": len(logs),
             "totalSteps": sum(int(log.get("steps", 0)) for log in logs),
+            "totalWorkoutMinutes": sum(
+                int(log.get("workout_minutes", 0) or 0) for log in logs
+            ),
+            "totalActiveCalories": sum(
+                int(log.get("active_calories", 0) or 0) for log in logs
+            ),
+            "totalDistanceMiles": sum(
+                float(log.get("distance_miles", 0) or 0) for log in logs
+            ),
             "totalPointsAwarded": sum(
                 int(log.get("points_awarded", 0)) for log in logs
             ),

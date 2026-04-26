@@ -13,9 +13,13 @@ struct LoginPayload: Codable {
     let password: String
 }
 
-struct StepPayload: Codable {
+struct FitnessSyncPayload: Codable {
     let loggedOn: String
     let steps: Int
+    let workoutMinutes: Int
+    let activeCalories: Int
+    let distanceMiles: Double
+    let source: String
     let notes: String
 }
 
@@ -52,13 +56,22 @@ final class ArcadeAPIClient {
         try await send(request)
     }
 
-    func syncSteps(steps: Int) async throws -> SyncStepsResponse {
+    func syncFitness(
+        steps: Int,
+        workoutMinutes: Int,
+        activeCalories: Int,
+        distanceMiles: Double
+    ) async throws -> SyncStepsResponse {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
 
-        let payload = StepPayload(
+        let payload = FitnessSyncPayload(
             loggedOn: formatter.string(from: Date()),
             steps: steps,
+            workoutMinutes: workoutMinutes,
+            activeCalories: activeCalories,
+            distanceMiles: distanceMiles,
+            source: "apple_health",
             notes: "Synced from Apple Health"
         )
 

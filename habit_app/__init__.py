@@ -62,6 +62,15 @@ def create_app():
     app.config["FITNESS_DAILY_GOAL_BONUS"] = int(
         os.getenv("FITNESS_DAILY_GOAL_BONUS", "5")
     )
+    app.config["FITNESS_WORKOUT_MINUTE_POINTS"] = int(
+        os.getenv("FITNESS_WORKOUT_MINUTE_POINTS", "2")
+    )
+    app.config["FITNESS_ACTIVE_CALORIES_PER_POINT"] = int(
+        os.getenv("FITNESS_ACTIVE_CALORIES_PER_POINT", "25")
+    )
+    app.config["FITNESS_DISTANCE_MILES_PER_POINT"] = float(
+        os.getenv("FITNESS_DISTANCE_MILES_PER_POINT", "1")
+    )
 
     db.init_app(app)
 

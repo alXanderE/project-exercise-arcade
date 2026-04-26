@@ -37,6 +37,18 @@ SQLITE_COLUMN_UPDATES = {
     "fitness_log": [
         ("source", "ALTER TABLE fitness_log ADD COLUMN source VARCHAR(30)"),
         (
+            "workout_minutes",
+            "ALTER TABLE fitness_log ADD COLUMN workout_minutes INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "active_calories",
+            "ALTER TABLE fitness_log ADD COLUMN active_calories INTEGER NOT NULL DEFAULT 0",
+        ),
+        (
+            "distance_miles",
+            "ALTER TABLE fitness_log ADD COLUMN distance_miles FLOAT NOT NULL DEFAULT 0",
+        ),
+        (
             "points_awarded",
             "ALTER TABLE fitness_log ADD COLUMN points_awarded INTEGER NOT NULL DEFAULT 0",
         ),

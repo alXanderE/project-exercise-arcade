@@ -107,19 +107,24 @@ Log a completion:
 }
 ```
 
-Log daily steps:
+Log daily fitness from the website or iPhone app:
 
 ```json
 {
   "loggedOn": "2026-04-25",
   "steps": 8500,
-  "notes": "Walked to class and back"
+  "workoutMinutes": 24,
+  "activeCalories": 180,
+  "distanceMiles": 1.6,
+  "source": "apple_health",
+  "notes": "Synced from Apple Health"
 }
 ```
 
 Manual fitness logging awards points that can be spent in the arcade. By default,
-users earn 1 point per 1,000 steps, up to 20,000 rewarded steps per day, plus a
-5 point bonus for reaching 10,000 steps.
+users earn 1 point per 250 steps, up to 10,000 rewarded steps per day, plus a
+5 point bonus for reaching 10,000 steps. Apple Health sync can also award points
+for workout minutes, active calories, and distance.
 
 Spin the prize wheel:
 
@@ -137,4 +142,7 @@ FITNESS_STEPS_PER_POINT=250
 FITNESS_DAILY_STEP_CAP=10000
 FITNESS_DAILY_GOAL_STEPS=10000
 FITNESS_DAILY_GOAL_BONUS=5
+FITNESS_WORKOUT_MINUTE_POINTS=2
+FITNESS_ACTIVE_CALORIES_PER_POINT=25
+FITNESS_DISTANCE_MILES_PER_POINT=1
 ```

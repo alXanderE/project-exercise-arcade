@@ -12,6 +12,11 @@ struct ContentView: View {
     @State private var statusMessage = "Connect Apple Health to read steps."
     @State private var email = ""
     @State private var password = ""
+    @State private var workoutMinutes = 0
+    @State private var workoutCount = 0
+    @State private var activeCalories = 0
+    @State private var distanceMiles = 0.0
+
 
     private let healthKitManager = HealthKitManager()
     private let apiClient = ArcadeAPIClient()
@@ -32,6 +37,15 @@ struct ContentView: View {
                     .font(.system(size: 56, weight: .bold))
 
                 Text("steps today")
+                    .foregroundStyle(.secondary)
+
+                Text("\(workoutMinutes) workout minutes")
+                    .foregroundStyle(.secondary)
+
+                Text("\(activeCalories) active calories")
+                    .foregroundStyle(.secondary)
+
+                Text(String(format: "%.2f miles", distanceMiles))
                     .foregroundStyle(.secondary)
 
                 Button("Connect Apple Health") {
@@ -58,6 +72,24 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
 
+                Button("Fetch Today’s Workouts") {
+                    Task {
+                        do {
+                            let summary = try await healthKitManager.fetchTodayWorkoutSummary()
+
+                            workoutCount = summary.workoutCount
+                            workoutMinutes = summary.workoutMinutes
+                            activeCalories = summary.activeCalories
+                            distanceMiles = summary.distanceMiles
+
+                            statusMessage = "Workout data updated."
+                        } catch {
+                            statusMessage = error.localizedDescription
+                        }
+                    }
+                }
+                .buttonStyle(.bordered)
+
                 VStack(spacing: 12) {
                     TextField("Exercise Arcade email", text: $email)
                         .textInputAutocapitalization(.never)
@@ -67,7 +99,7 @@ struct ContentView: View {
                     SecureField("Password", text: $password)
                         .textFieldStyle(.roundedBorder)
 
-                    Button("Sync Steps to Arcade") {
+                    Button("Sync Fitness to Arcade") {
                         Task {
                             do {
                                 let cleanedEmail = email.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -81,9 +113,14 @@ struct ContentView: View {
                                 )
 
 
-                                let result = try await apiClient.syncSteps(steps: steps)
+                                let result = try await apiClient.syncFitness(
+                                    steps: steps,
+                                    workoutMinutes: workoutMinutes,
+                                    activeCalories: activeCalories,
+                                    distanceMiles: distanceMiles
+                                )
 
-                                statusMessage = "Steps synced. +\(result.pointsDelta) points awarded."
+                                statusMessage = "Fitness synced. +\(result.pointsDelta) points awarded."
 
                             } catch {
                                 statusMessage = error.localizedDescription
@@ -91,7 +128,11 @@ struct ContentView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    .disabled(email.isEmpty || password.isEmpty || steps == 0)
+                    .disabled(
+                        email.isEmpty ||
+                        password.isEmpty ||
+                        (steps == 0 && workoutMinutes == 0 && activeCalories == 0)
+                    )
                 }
                 .padding(.top, 12)
 
