@@ -1831,7 +1831,9 @@
       function updateCustomWorkoutAvailability() {
         const canSaveServerWorkout = Boolean(appState.user) && !appState.user.localMode;
 
-        elements.showCustomWorkout.disabled = !canSaveServerWorkout;
+        elements.showCustomWorkout.dataset.canSaveServerWorkout = canSaveServerWorkout
+          ? "true"
+          : "false";
         elements.showCustomWorkout.title = canSaveServerWorkout
           ? ""
           : "Log into your server-backed account to save workouts across devices.";
@@ -2580,7 +2582,7 @@
       elements.steps.addEventListener("input", updatePreview);
       elements.spinWheelButton.addEventListener("click", handlePrizeWheelSpin);
       elements.showCustomWorkout.addEventListener("click", () => {
-        if (elements.showCustomWorkout.disabled) {
+        if (elements.showCustomWorkout.dataset.canSaveServerWorkout !== "true") {
           setMessage(
             "Log into your server-backed account to save workouts across devices.",
             true
