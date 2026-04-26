@@ -1838,6 +1838,53 @@
         appState.user = null;
       }
 
+      function normalizeAppUser(user, extra = {}) {
+        return {
+          ...user,
+          ...extra,
+          id: String(user?.id || ""),
+          email: String(user?.email || "").trim().toLowerCase(),
+          displayName: String(user?.displayName || "").trim(),
+          points: Math.max(0, Number.parseInt(user?.points, 10) || 0),
+          level: Math.max(1, Number.parseInt(user?.level, 10) || 1),
+          localMode: Boolean(extra.localMode),
+          isGuest: Boolean(extra.isGuest)
+        };
+      }
+
+      function guestUser() {
+        return normalizeAppUser(
+          {
+            id: "guest",
+            email: "",
+            displayName: "Guest",
+            points: 0,
+            level: 1
+          },
+          {
+            localMode: false,
+            isGuest: true
+          }
+        );
+      }
+
+      function clearStoredServerAccounts() {
+        taskState.localAccounts = cleanLocalAccounts().filter((account) => {
+          return account.localMode || account.isGuest;
+        });
+        taskState.localSessionUserId = null;
+        persistLocalState();
+      }
+
+      function setServerUser(user) {
+        clearStoredServerAccounts();
+        appState.user = normalizeAppUser(user, {
+          localMode: false,
+          isGuest: false
+        });
+        return appState.user;
+      }
+
       function ensureBrowserModeAccount() {
         taskState.localAccounts = cleanLocalAccounts();
         const existing = taskState.localAccounts.find(
@@ -2479,48 +2526,16 @@
       }
 
       function currentDailyCompletedIds() {
-        if (appState.user && !appState.user.localMode) {
+        if (appState.user && !appState.user.isGuest) {
           return appState.completedTaskIds;
         }
-
-        const today = todayIso();
-        const userKey = userStorageKey(appState.user);
-        const completionsForUser =
-          userKey && taskState.completionsByDateByUser &&
-          typeof taskState.completionsByDateByUser[userKey] === "object"
-            ? taskState.completionsByDateByUser[userKey]
-            : null;
-        const ids = completionsForUser?.[today];
-        return Array.isArray(ids) ? ids : [];
+        return [];
       }
 
       function setCurrentDailyCompletedIds(ids) {
-        if (appState.user && !appState.user.localMode) {
+        if (appState.user && !appState.user.isGuest) {
           appState.completedTaskIds = ids;
-          return;
         }
-
-        const userKey = userStorageKey(appState.user);
-        if (!userKey) {
-          return;
-        }
-
-        if (
-          !taskState.completionsByDateByUser ||
-          typeof taskState.completionsByDateByUser !== "object"
-        ) {
-          taskState.completionsByDateByUser = {};
-        }
-
-        const today = todayIso();
-        const existing =
-          typeof taskState.completionsByDateByUser[userKey] === "object"
-            ? taskState.completionsByDateByUser[userKey]
-            : {};
-        taskState.completionsByDateByUser[userKey] = {
-          ...existing,
-          [today]: ids
-        };
       }
 
       function rememberCompletedTask(taskId) {
@@ -2618,7 +2633,7 @@
       }
 
       function updateCustomWorkoutAvailability() {
-        const canSaveServerWorkout = Boolean(appState.user) && !appState.user.localMode;
+        const canSaveServerWorkout = Boolean(appState.user) && !appState.user.isGuest;
 
         elements.showCustomWorkout.dataset.canSaveServerWorkout = canSaveServerWorkout
           ? "true"
@@ -2665,40 +2680,27 @@
           return;
         }
 
-        if (!appState.user.localMode) {
-          try {
-            const result = await apiFetch("/api/tasks/custom", {
-              method: "POST",
-              body: JSON.stringify({
-                title,
-                category,
-                description,
-                coinReward: reward
-              })
-            });
-            await applyTasksForCurrentUser();
-            toggleCustomWorkoutForm(false);
-            setMessage(`${result.task.title} was added to your daily routines.`);
-            return;
-          } catch (error) {
-            setMessage(error.message, true);
-            return;
-          }
+        if (appState.user.isGuest) {
+          setMessage("Log into your account to save custom workouts.", true);
+          return;
         }
 
-        const userKey = userStorageKey(appState.user);
-        if (!taskState.customTasksByUser || typeof taskState.customTasksByUser !== "object") {
-          taskState.customTasksByUser = {};
+        try {
+          const result = await apiFetch("/api/tasks/custom", {
+            method: "POST",
+            body: JSON.stringify({
+              title,
+              category,
+              description,
+              coinReward: reward
+            })
+          });
+          await applyTasksForCurrentUser();
+          toggleCustomWorkoutForm(false);
+          setMessage(`${result.task.title} was added to your daily routines.`);
+        } catch (error) {
+          setMessage(error.message, true);
         }
-        const userTasks = customTasksForUser(appState.user);
-        userTasks.push(customTask);
-        taskState.customTasksByUser[userKey] = userTasks;
-        saveTaskState(taskState);
-        appState.tasks.push(customTask);
-        renderTaskCards();
-        updateLocalCoinDisplay();
-        toggleCustomWorkoutForm(false);
-        setMessage(`${title} was added to your daily routines.`);
       }
 
       function updateTaskCards() {
@@ -2838,19 +2840,9 @@
         button.disabled = true;
         button.textContent = "Saving...";
 
-        if (!appState.user || appState.user.localMode) {
-          rememberCompletedTask(task.id);
-          taskState.lifetimeCoins += task.coin_reward;
-          if (appState.user?.localMode) {
-            updateLocalUserPoints(task.coin_reward);
-          }
-          saveTaskState(taskState);
+        if (!appState.user || appState.user.isGuest) {
           updateTaskCard(taskCard);
-          updateLocalCoinDisplay();
-          setMessage(appState.user?.localMode
-            ? `Completed ${task.title}. +${formatNumber(task.coin_reward)} coins.`
-            : `Completed ${task.title}. Log in to save task coins to your account.`
-          );
+          setMessage(`Log in to save ${task.title} to your account.`, true);
           return;
         }
 
@@ -2913,20 +2905,16 @@
       function updatePrizeWheelControls() {
         const cost = appState.prizeWheel.spinCost;
         const balance = appState.user?.points || 0;
-        const localMode = Boolean(appState.user?.localMode);
-        const canSpin = Boolean(appState.user) && balance >= cost;
+        const isGuest = Boolean(appState.user?.isGuest);
+        const canSpin = Boolean(appState.user) && !isGuest && balance >= cost;
 
-        elements.wheelCostNote.textContent = localMode
-          ? `Browser mode spin for ${formatNumber(cost)} coins.`
-          : `Spin for ${formatNumber(cost)} coins.`;
+        elements.wheelCostNote.textContent = `Spin for ${formatNumber(cost)} coins.`;
         elements.spinWheelButton.textContent = appState.prizeWheel.isSpinning
           ? "Spinning..."
           : `Spin - ${formatNumber(cost)} coins`;
         elements.spinWheelButton.disabled = appState.prizeWheel.isSpinning || !canSpin;
-        elements.wheelBalanceNote.textContent = localMode
-          ? canSpin
-            ? `${formatNumber(balance)} coins available in browser mode`
-            : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`
+        elements.wheelBalanceNote.textContent = isGuest
+          ? "Log in to spin the prize wheel."
           : canSpin
             ? `${formatNumber(balance)} coins available`
             : `Need ${formatNumber(Math.max(cost - balance, 0))} more coins`;
@@ -3000,11 +2988,12 @@
         updatePrizeWheelControls();
 
         try {
-          const result = appState.user?.localMode
-            ? saveLocalPrizeWheelSpin()
-            : await apiFetch("/api/arcade/prize-wheel/spin", {
-                method: "POST"
-              });
+          if (!appState.user || appState.user.isGuest) {
+            throw new Error("Log in to spin the prize wheel.");
+          }
+          const result = await apiFetch("/api/arcade/prize-wheel/spin", {
+            method: "POST"
+          });
           const extraTurns = 4 * 360;
           const target = winningSliceRotation(result.winningSlice);
           const current = ((appState.prizeWheel.rotation % 360) + 360) % 360;
@@ -3019,13 +3008,7 @@
             elements.prizeWheelImage.classList.remove("is-spinning");
             updateCoinDisplay(result.user);
             updatePrizeWheelControls();
-            if (appState.user?.localMode) {
-              updateSpinHistory({
-                spins: localPrizeWheelSpinsForUser(appState.user)
-              });
-            } else {
-              updateSpinHistory(await apiFetch("/api/arcade/prize-wheel/history"));
-            }
+            updateSpinHistory(await apiFetch("/api/arcade/prize-wheel/history"));
             setMessage(
               `Wheel landed on ${result.winningSlice.label}. ` +
               `Balance: ${formatNumber(result.user.points)} coins.`
@@ -3050,12 +3033,13 @@
 
         elements.blackjackResult.textContent = "Dealing...";
         try {
-          const result = appState.user?.localMode
-            ? startLocalBlackjack(bet)
-            : await apiFetch("/api/arcade/blackjack/start", {
-                method: "POST",
-                body: JSON.stringify({ bet })
-              });
+          if (!appState.user || appState.user.isGuest) {
+            throw new Error("Log in to play blackjack.");
+          }
+          const result = await apiFetch("/api/arcade/blackjack/start", {
+            method: "POST",
+            body: JSON.stringify({ bet })
+          });
           if (result) {
             renderBlackjackState(result);
             updateCoinDisplay(result.user);
@@ -3070,16 +3054,8 @@
       }
 
       async function handleBlackjackAction(action) {
-        if (appState.user?.localMode) {
-          try {
-            if (action === "hit") {
-              hitLocalBlackjack();
-            } else {
-              standLocalBlackjack();
-            }
-          } catch (error) {
-            setMessage(error.message, true);
-          }
+        if (!appState.user || appState.user.isGuest) {
+          setMessage("Log in to play blackjack.", true);
           return;
         }
 
@@ -3104,12 +3080,13 @@
         elements.diceResult.textContent = "Rolling...";
 
         try {
-          const result = appState.user?.localMode
-            ? rollLocalDice(payload)
-            : await apiFetch("/api/arcade/dice/roll", {
-                method: "POST",
-                body: JSON.stringify(payload)
-              });
+          if (!appState.user || appState.user.isGuest) {
+            throw new Error("Log in to roll dice.");
+          }
+          const result = await apiFetch("/api/arcade/dice/roll", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
           renderDiceResult(result);
           updateCoinDisplay(result.user);
           setMessage(
@@ -3187,33 +3164,29 @@
       }
 
       function showLoggedOut() {
-        const browserUser = ensureBrowserModeAccount();
+        appState.user = guestUser();
         appState.prizeWheel.slices = fallbackPrizeWheelSlices;
         appState.completedTaskIds = [];
         resetFitnessForm();
-        updateSummary(localSummaryForUser(browserUser));
-        updateHistory(localHistoryForUser(browserUser));
-        updateSpinHistory({
-          spins: localPrizeWheelSpinsForUser(browserUser)
+        updateSummary({
+          today: null,
+          stats: {
+            totalLogs: 0,
+            totalSteps: 0,
+            totalPointsAwarded: 0,
+            bestDaySteps: 0,
+            goalDays: 0
+          },
+          rewardSettings: appState.settings,
+          user: appState.user
         });
+        updateHistory({ logs: [] });
+        updateSpinHistory({ spins: [] });
         updateTaskCards();
         showAuthed();
       }
 
       async function refreshFitness() {
-        if (appState.user?.localMode) {
-          appState.prizeWheel.slices = fallbackPrizeWheelSlices;
-          updateSummary(localSummaryForUser(appState.user));
-          updateHistory(localHistoryForUser(appState.user));
-          renderCriteriaList();
-          updateSpinHistory({
-            spins: localPrizeWheelSpinsForUser(appState.user)
-          });
-          updateTaskCards();
-          showAuthed();
-          return;
-        }
-
         const [summary, history, wheel, wheelHistory, taskCompletions] = await Promise.all([
           apiFetch("/api/fitness/summary"),
           apiFetch("/api/fitness/history"),
@@ -3236,35 +3209,12 @@
       async function checkSession() {
         await loadDailyTasks();
 
-        const localUser = currentLocalAccount();
-        if (localUser) {
-          try {
-            const session = await apiFetch("/api/auth/session");
-            setCurrentLocalAccount({
-              ...session.user,
-              password: localUser.password,
-              localMode: false
-            });
-            await applyTasksForCurrentUser();
-            await refreshFitness();
-            return;
-          } catch {
-            const offlineUser = {
-              ...localUser,
-              localMode: true
-            };
-            setCurrentLocalAccount(offlineUser);
-            await applyTasksForCurrentUser();
-            showAuthedShell(offlineUser);
-            await refreshFitness();
-            return;
-          }
-        }
-
         try {
-          await apiFetch("/api/auth/session");
+          const session = await apiFetch("/api/auth/session");
+          setServerUser(session.user);
           await refreshFitness();
         } catch {
+          clearStoredServerAccounts();
           showLoggedOut();
         }
       }
@@ -3282,15 +3232,13 @@
         }
 
         let userCustomTasks = [];
-        if (appState.user && !appState.user.localMode) {
+        if (appState.user && !appState.user.isGuest) {
           try {
             const result = await apiFetch("/api/tasks/custom");
             userCustomTasks = Array.isArray(result.tasks) ? result.tasks : [];
           } catch {
             userCustomTasks = [];
           }
-        } else {
-          userCustomTasks = customTasksForUser(appState.user);
         }
         appState.tasks = [...serverTasks, ...userCustomTasks];
         saveTaskState(taskState);
@@ -3328,11 +3276,7 @@
                 password
               })
             });
-            setCurrentLocalAccount({
-              ...result.user,
-              password,
-              localMode: false
-            });
+            setServerUser(result.user);
             await applyTasksForCurrentUser();
             elements.password.value = "";
             showAuthedShell(result.user);
@@ -3348,16 +3292,7 @@
               );
             }
           } catch (error) {
-            try {
-              const localUser = createLocalAccount(email, displayName, password);
-              await applyTasksForCurrentUser();
-              elements.password.value = "";
-              showAuthedShell(localUser);
-              await refreshFitness();
-              setMessage("Account saved in this browser. Server sync can come later.");
-            } catch (localError) {
-              setMessage(localError.message || error.message, true);
-            }
+            setMessage(error.message, true);
           }
 
           return;
@@ -3371,11 +3306,7 @@
               password: elements.password.value
             })
           });
-          setCurrentLocalAccount({
-            ...result.user,
-            password: elements.password.value,
-            localMode: false
-          });
+          setServerUser(result.user);
           await applyTasksForCurrentUser();
           elements.password.value = "";
           showAuthedShell(result.user);
@@ -3391,28 +3322,7 @@
               );
             }
         } catch (error) {
-          const localUser = localAccountFromCredentials(
-            elements.email.value,
-            elements.password.value
-          );
-
-          if (!localUser) {
-            setMessage(error.message, true);
-            return;
-          }
-
-          setCurrentLocalAccount({
-            ...localUser,
-            localMode: true
-          });
-          await applyTasksForCurrentUser();
-          elements.password.value = "";
-          showAuthedShell({
-            ...localUser,
-            localMode: true
-          });
-          await refreshFitness();
-          setMessage("Logged in with your browser-saved account.");
+          setMessage(error.message, true);
         }
       }
 
@@ -3426,12 +3336,13 @@
         };
 
         try {
-          const result = appState.user?.localMode
-            ? saveLocalSteps(payload)
-            : await apiFetch("/api/fitness/steps", {
-                method: "POST",
-                body: JSON.stringify(payload)
-              });
+          if (!appState.user || appState.user.isGuest) {
+            throw new Error("Log in to save steps to your account.");
+          }
+          const result = await apiFetch("/api/fitness/steps", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
           updateCoinDisplay(result.user);
           setMessage(`Saved. Point change: ${formatNumber(result.pointsDelta)}.`);
           await refreshFitness();
@@ -3442,28 +3353,18 @@
 
       async function handleLogout() {
         try {
-          if (!appState.user?.localMode) {
+          if (appState.user && !appState.user.isGuest) {
             await apiFetch("/api/auth/logout", { method: "POST" });
           }
         } finally {
-          clearLocalSession();
+          clearStoredServerAccounts();
           showLoggedOut();
           setMessage("");
         }
       }
 
       elements.resetProgress.addEventListener("click", () => {
-        if (appState.user?.localMode) {
-          const userKey = userStorageKey(appState.user);
-          const today = todayIso();
-          if (
-            userKey &&
-            taskState.completionsByDateByUser &&
-            typeof taskState.completionsByDateByUser[userKey] === "object"
-          ) {
-            delete taskState.completionsByDateByUser[userKey][today];
-          }
-        } else {
+        if (appState.user && !appState.user.isGuest) {
           delete taskState.completionsByDate[todayIso()];
         }
         saveTaskState(taskState);
