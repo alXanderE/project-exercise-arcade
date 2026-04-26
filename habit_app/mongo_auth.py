@@ -44,6 +44,7 @@ def ensure_mongo_auth_indexes():
     users.create_index([("email", ASCENDING)], unique=True)
     users.create_index([("display_name_lower", ASCENDING)], unique=True)
     users.create_index([("sql_user_id", ASCENDING)], unique=True, sparse=True)
+    users.create_index([("session_token", ASCENDING)], unique=True, sparse=True)
 
 
 def current_timestamp():
@@ -103,6 +104,19 @@ def find_auth_user_by_identifier(identifier):
     )
 
 
+def find_auth_user_by_session_token(session_token):
+    if not mongo_auth_enabled() or not session_token:
+        return None
+
+    document = get_auth_collection().find_one(
+        {
+            "session_token": session_token,
+            "session_expires_at": {"$gt": current_timestamp()},
+        }
+    )
+    return normalize_auth_document(document)
+
+
 def create_auth_user(email, display_name, password_hash, sql_user_id):
     users = get_auth_collection()
     timestamp = current_timestamp()
@@ -142,3 +156,29 @@ def update_auth_user(email, **updates):
         {"$set": update_fields},
     )
     return find_auth_user_by_email(update_fields.get("email", normalized_email))
+
+
+def set_auth_session(email, session_token, expires_at):
+    return update_auth_user(
+        email,
+        session_token=session_token,
+        session_expires_at=expires_at,
+    )
+
+
+def clear_auth_session(email):
+    if not mongo_auth_enabled():
+        return None
+
+    normalized_email = str(email or "").strip().lower()
+    get_auth_collection().update_one(
+        {"email": normalized_email},
+        {
+            "$unset": {
+                "session_token": "",
+                "session_expires_at": "",
+            },
+            "$set": {"updated_at": current_timestamp()},
+        },
+    )
+    return find_auth_user_by_email(normalized_email)

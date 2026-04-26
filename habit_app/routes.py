@@ -14,12 +14,15 @@ from .auth import build_session, hash_password, verify_password
 from .daily_tasks import all_daily_tasks, find_daily_task
 from .extensions import db
 from .mongo_auth import (
+    clear_auth_session,
     create_auth_user,
     find_auth_user_by_display_name,
     find_auth_user_by_email,
     find_auth_user_by_identifier,
+    find_auth_user_by_session_token,
     mongo_auth_enabled,
     mongo_auth_unavailable_reason,
+    set_auth_session,
     update_auth_user,
 )
 from .mongo_game import (
@@ -261,6 +264,12 @@ def get_current_user():
     if not session_token:
         return None
 
+    if mongo_auth_enabled():
+        auth_user = find_auth_user_by_session_token(session_token)
+        if not auth_user:
+            return None
+        return sync_sql_user_from_auth_document(auth_user)
+
     return User.query.filter(
         User.session_token == session_token,
         User.session_expires_at.isnot(None),
@@ -270,6 +279,18 @@ def get_current_user():
 
 def login_user(response, user):
     session_token, expires_at = build_session(current_app.config["SESSION_DAYS"])
+    if mongo_auth_enabled():
+        set_auth_session(user.email, session_token, expires_at)
+        max_age = current_app.config["SESSION_DAYS"] * 24 * 60 * 60
+        response.set_cookie(
+            current_app.config["SESSION_COOKIE_NAME"],
+            session_token,
+            httponly=True,
+            samesite="Lax",
+            max_age=max_age,
+        )
+        return
+
     user.session_token = session_token
     user.session_expires_at = expires_at
     db.session.commit()
@@ -284,6 +305,17 @@ def login_user(response, user):
 
 
 def logout_user(response, user):
+    if mongo_auth_enabled():
+        clear_auth_session(user.email if user else None)
+        response.set_cookie(
+            current_app.config["SESSION_COOKIE_NAME"],
+            "",
+            httponly=True,
+            samesite="Lax",
+            max_age=0,
+        )
+        return
+
     if user:
         user.session_token = None
         user.session_expires_at = None
