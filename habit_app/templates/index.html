@@ -879,16 +879,28 @@
           coin_reward: 8
         }
       ];
-      const fallbackPrizeWheelSlices = [
-        { id: 1, label: "Red", color: "#ff001c", weight: 10, rewardType: "spin_multiplier", rewardValue: 100, displayOrder: 0 },
-        { id: 2, label: "Orange", color: "#ffae00", weight: 14, rewardType: "spin_multiplier", rewardValue: 50, displayOrder: 1 },
-        { id: 3, label: "Yellow", color: "#fffb00", weight: 20, rewardType: "spin_multiplier", rewardValue: 10, displayOrder: 2 },
-        { id: 4, label: "Green", color: "#00f932", weight: 18, rewardType: "spin_multiplier", rewardValue: 0, displayOrder: 3 },
-        { id: 5, label: "Light Blue", color: "#4fd8ff", weight: 14, rewardType: "spin_multiplier", rewardValue: 200, displayOrder: 4 },
-        { id: 6, label: "Dark Blue", color: "#006dff", weight: 18, rewardType: "spin_multiplier", rewardValue: 20, displayOrder: 5 },
-        { id: 7, label: "Dark Purple", color: "#4c1d95", weight: 8, rewardType: "spin_multiplier", rewardValue: -100, displayOrder: 6 },
-        { id: 8, label: "Pink", color: "#fb00ff", weight: 8, rewardType: "spin_multiplier", rewardValue: 300, displayOrder: 7 }
+      const repeatedWheelPattern = [
+        { label: "Red", color: "#ff001c", rewardValue: 100 },
+        { label: "Orange", color: "#ffae00", rewardValue: 50 },
+        { label: "Yellow", color: "#fffb00", rewardValue: 10 },
+        { label: "Green", color: "#00f932", rewardValue: 0 },
+        { label: "Light Blue", color: "#4fd8ff", rewardValue: 200 },
+        { label: "Dark Blue", color: "#006dff", rewardValue: 20 },
+        { label: "Dark Purple", color: "#4c1d95", rewardValue: -100 },
+        { label: "Pink", color: "#fb00ff", rewardValue: 300 }
       ];
+      const fallbackPrizeWheelSlices = Array.from({ length: 16 }, (_, index) => {
+        const pattern = repeatedWheelPattern[index % repeatedWheelPattern.length];
+        return {
+          id: index + 1,
+          label: pattern.label,
+          color: pattern.color,
+          weight: 1,
+          rewardType: "spin_multiplier",
+          rewardValue: pattern.rewardValue,
+          displayOrder: index
+        };
+      });
       const defaultTaskState = {
         lifetimeCoins: 0,
         completionsByDate: {},
@@ -1057,34 +1069,34 @@
         return Math.max(1, Math.floor((points || 0) / 100) + 1);
       }
 
-      function calculateSpinReward(pointsSpent, slice) {
-        if ((slice.rewardType || "points") === "spin_multiplier") {
-          return Math.floor(pointsSpent * ((Number(slice.rewardValue) || 0) / 100));
-        }
+      function normalizedWheelPosition(slice) {
+        const displayOrder = Number.parseInt(slice?.displayOrder, 10);
+        const safeOrder = Number.isFinite(displayOrder) ? displayOrder : 0;
+        return ((safeOrder % repeatedWheelPattern.length) + repeatedWheelPattern.length) %
+          repeatedWheelPattern.length;
+      }
 
-        return Number(slice.rewardValue) || 0;
+      function positionalSpinMultiplier(slice) {
+        return repeatedWheelPattern[normalizedWheelPosition(slice)].rewardValue;
+      }
+
+      function positionalWheelLabel(slice) {
+        return repeatedWheelPattern[normalizedWheelPosition(slice)].label;
+      }
+
+      function calculateSpinReward(pointsSpent, slice) {
+        return Math.floor(pointsSpent * (positionalSpinMultiplier(slice) / 100));
       }
 
       function describeSpinReward(slice, pointsSpent) {
         const reward = calculateSpinReward(pointsSpent, slice);
-
-        if ((slice.rewardType || "points") === "spin_multiplier") {
-          if (reward > 0) {
-            return `+${formatNumber(reward)} coins`;
-          }
-          if (reward < 0) {
-            return `${formatNumber(reward)} coins`;
-          }
-          return "0 coins back";
-        }
-
         if (reward > 0) {
           return `+${formatNumber(reward)} coins`;
         }
         if (reward < 0) {
           return `${formatNumber(reward)} coins`;
         }
-        return "0 coins";
+        return "0 coins back";
       }
 
       function cleanLocalAccounts() {
@@ -1329,13 +1341,15 @@
         }
 
         const logs = localFitnessLogsForUser(currentUser.id);
-        const pointsAwarded = calculatePreview(payload.steps);
         const index = logs.findIndex((log) => log.loggedOn === payload.loggedOn);
+        const previousSteps = index >= 0 ? logs[index].steps : 0;
+        const totalSteps = previousSteps + payload.steps;
+        const pointsAwarded = calculatePreview(totalSteps);
         const previousPoints = index >= 0 ? logs[index].pointsAwarded : 0;
         const pointsDelta = pointsAwarded - previousPoints;
         const nextLog = {
           loggedOn: payload.loggedOn,
-          steps: payload.steps,
+          steps: totalSteps,
           pointsAwarded,
           notes: payload.notes || "",
           source: "local"
@@ -1365,20 +1379,7 @@
         const slices = appState.prizeWheel.slices.length
           ? appState.prizeWheel.slices
           : fallbackPrizeWheelSlices;
-        const totalWeight = slices.reduce(
-          (sum, slice) => sum + Math.max(0, Number(slice.weight) || 0),
-          0
-        );
-        let target = Math.random() * totalWeight;
-
-        for (const slice of slices) {
-          target -= Math.max(0, Number(slice.weight) || 0);
-          if (target <= 0) {
-            return slice;
-          }
-        }
-
-        return slices[slices.length - 1];
+        return slices[Math.floor(Math.random() * slices.length)];
       }
 
       function saveLocalPrizeWheelSpin() {
@@ -1396,7 +1397,7 @@
         const rewardValue = calculateSpinReward(spinCost, winningSlice);
         const updatedUser = updateLocalUserPoints(-spinCost + rewardValue);
         const spin = {
-          prizeLabel: winningSlice.label,
+          prizeLabel: positionalWheelLabel(winningSlice),
           pointsSpent: spinCost,
           rewardValue,
           sliceId: winningSlice.id,

@@ -22,80 +22,79 @@ from .models import (
 
 api = Blueprint("api", __name__)
 
-DEFAULT_PRIZE_WHEEL_SLICES = [
+POSITIONAL_WHEEL_RULES = [
     {
         "label": "Red",
         "description": "Get the full spin cost back.",
         "color": "#ff001c",
-        "weight": 10,
         "reward_type": "spin_multiplier",
         "reward_value": 100,
-        "display_order": 0,
     },
     {
         "label": "Orange",
         "description": "Get half the spin cost back.",
         "color": "#ffae00",
-        "weight": 14,
         "reward_type": "spin_multiplier",
         "reward_value": 50,
-        "display_order": 1,
     },
     {
         "label": "Yellow",
         "description": "Get 10% of the spin cost back.",
         "color": "#fffb00",
-        "weight": 20,
         "reward_type": "spin_multiplier",
         "reward_value": 10,
-        "display_order": 2,
     },
     {
         "label": "Green",
         "description": "No coins back.",
         "color": "#00f932",
-        "weight": 18,
         "reward_type": "spin_multiplier",
         "reward_value": 0,
-        "display_order": 3,
     },
     {
         "label": "Light Blue",
         "description": "Get twice the spin cost back.",
         "color": "#4fd8ff",
-        "weight": 14,
         "reward_type": "spin_multiplier",
         "reward_value": 200,
-        "display_order": 4,
     },
     {
         "label": "Dark Blue",
         "description": "Get 20% of the spin cost back.",
         "color": "#006dff",
-        "weight": 18,
         "reward_type": "spin_multiplier",
         "reward_value": 20,
-        "display_order": 5,
     },
     {
         "label": "Dark Purple",
         "description": "Lose the spin cost and the same amount again.",
         "color": "#4c1d95",
-        "weight": 8,
         "reward_type": "spin_multiplier",
         "reward_value": -100,
-        "display_order": 6,
     },
     {
         "label": "Pink",
         "description": "Get three times the spin cost back.",
         "color": "#fb00ff",
-        "weight": 8,
         "reward_type": "spin_multiplier",
         "reward_value": 300,
-        "display_order": 7,
     },
 ]
+
+DEFAULT_PRIZE_WHEEL_SLICES = [
+    {
+        **POSITIONAL_WHEEL_RULES[display_order % len(POSITIONAL_WHEEL_RULES)],
+        "weight": 1,
+        "display_order": display_order,
+    }
+    for display_order in range(16)
+]
+
+
+def wheel_rule_for_display_order(display_order):
+    if display_order is None:
+        return POSITIONAL_WHEEL_RULES[0]
+    return POSITIONAL_WHEEL_RULES[int(display_order) % len(POSITIONAL_WHEEL_RULES)]
 
 
 def calculate_spin_reward(points_spent, reward_type, reward_value):
@@ -149,14 +148,15 @@ def serialize_fitness_log(log):
 
 
 def serialize_prize_wheel_slice(slice_):
+    rule = wheel_rule_for_display_order(slice_.display_order)
     return {
         "id": slice_.id,
-        "label": slice_.label,
-        "description": slice_.description,
-        "color": slice_.color,
-        "weight": slice_.weight,
-        "rewardType": slice_.reward_type,
-        "rewardValue": slice_.reward_value,
+        "label": rule["label"],
+        "description": rule["description"],
+        "color": rule["color"],
+        "weight": 1,
+        "rewardType": rule["reward_type"],
+        "rewardValue": rule["reward_value"],
         "isActive": slice_.is_active,
         "displayOrder": slice_.display_order,
     }
@@ -333,18 +333,11 @@ def active_prize_wheel_slices():
 
 
 def choose_weighted_slice(slices):
-    total_weight = sum(max(slice_.weight, 0) for slice_ in slices)
-    if total_weight <= 0:
+    if not slices:
         return None
 
-    winning_number = secrets.SystemRandom().randint(1, total_weight)
-    current_weight = 0
-    for slice_ in slices:
-        current_weight += max(slice_.weight, 0)
-        if winning_number <= current_weight:
-            return slice_
-
-    return slices[-1]
+    winning_index = secrets.SystemRandom().randrange(len(slices))
+    return slices[winning_index]
 
 
 def apply_prize_wheel_reward(user, spin):
@@ -474,13 +467,13 @@ def log_fitness_steps(user):
     if steps < 0:
         return jsonify({"message": "steps cannot be negative."}), 400
 
-    points_awarded = calculate_fitness_points(steps)
     notes = (payload.get("notes") or "").strip() or None
 
     log = FitnessLog.query.filter_by(user_id=user.id, logged_on=logged_on).first()
     created = log is None
 
     if created:
+        points_awarded = calculate_fitness_points(steps)
         log = FitnessLog(
             user_id=user.id,
             logged_on=logged_on,
@@ -492,8 +485,10 @@ def log_fitness_steps(user):
         db.session.add(log)
         points_delta = points_awarded
     else:
+        total_steps = log.steps + steps
+        points_awarded = calculate_fitness_points(total_steps)
         points_delta = points_awarded - log.points_awarded
-        log.steps = steps
+        log.steps = total_steps
         log.source = "manual"
         log.points_awarded = points_awarded
         log.notes = notes
@@ -602,13 +597,14 @@ def spin_prize_wheel(user):
     user.points -= spin_cost
     user.level = calculate_level(user.points)
 
+    wheel_rule = wheel_rule_for_display_order(winning_slice.display_order)
     spin = PrizeWheelSpin(
         user_id=user.id,
         slice_id=winning_slice.id,
         points_spent=spin_cost,
-        reward_type=winning_slice.reward_type,
-        reward_value=winning_slice.reward_value,
-        prize_label=winning_slice.label,
+        reward_type=wheel_rule["reward_type"],
+        reward_value=wheel_rule["reward_value"],
+        prize_label=wheel_rule["label"],
     )
     db.session.add(spin)
     db.session.flush()
