@@ -113,6 +113,53 @@
 
     <script>
         const statusEl = document.getElementById("status");
+        const storageKey = "exercise-arcade-front-page-state";
+
+        function loadTaskState() {
+            try {
+                const parsed = JSON.parse(window.localStorage.getItem(storageKey));
+                return parsed && typeof parsed === "object" ? parsed : {};
+            } catch {
+                return {};
+            }
+        }
+
+        function saveGoogleAccount(user) {
+            if (!user || !user.email) {
+                return;
+            }
+
+            const state = loadTaskState();
+            const normalizedEmail = String(user.email || "").trim().toLowerCase();
+            const normalizedUser = {
+                id: String(user.id || normalizedEmail),
+                email: normalizedEmail,
+                displayName: String(user.displayName || user.name || normalizedEmail).trim(),
+                password: "",
+                points: Math.max(0, Number.parseInt(user.points, 10) || 0),
+                level: Math.max(1, Number.parseInt(user.level, 10) || 1),
+                localMode: false,
+                isGuest: false
+            };
+            const sessionKey = `server:${normalizedEmail}`;
+            const accounts = Array.isArray(state.localAccounts) ? state.localAccounts : [];
+            const existingIndex = accounts.findIndex((account) => {
+                return String(account?.email || "").trim().toLowerCase() === normalizedEmail;
+            });
+
+            if (existingIndex >= 0) {
+                accounts[existingIndex] = {
+                    ...accounts[existingIndex],
+                    ...normalizedUser
+                };
+            } else {
+                accounts.push(normalizedUser);
+            }
+
+            state.localAccounts = accounts;
+            state.localSessionUserId = sessionKey;
+            window.localStorage.setItem(storageKey, JSON.stringify(state));
+        }
 
         function setStatus(message, isError = false) {
             statusEl.textContent = message;
@@ -138,6 +185,7 @@
                 }
 
                 if (loginRes.ok) {
+                    saveGoogleAccount(data.user);
                     setStatus("Google sign-in successful. Taking you back to the app...");
                     window.setTimeout(() => {
                         window.location.href = "/";
