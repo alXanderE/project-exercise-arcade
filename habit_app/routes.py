@@ -1,6 +1,10 @@
 import secrets
 from datetime import date, datetime, timedelta, timezone
 from functools import wraps
+import json
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import urlopen
 
 from flask import Blueprint, current_app, jsonify, request
 from sqlalchemy import func, or_
@@ -145,6 +149,86 @@ def serialize_user(user):
         "points": user.points,
         "level": user.level,
     }
+
+
+def placeholder_password_hash():
+    return hash_password(secrets.token_urlsafe(32))
+
+
+def display_name_exists(display_name, *, exclude_email=None):
+    normalized_display_name = (display_name or "").strip().lower()
+    normalized_email = (exclude_email or "").strip().lower()
+    if not normalized_display_name:
+        return False
+
+    if mongo_auth_enabled():
+        auth_user = find_auth_user_by_display_name(display_name)
+        if auth_user and auth_user["email"] != normalized_email:
+            return True
+
+    existing_display_name = User.query.filter(
+        func.lower(User.display_name) == normalized_display_name
+    ).first()
+    return bool(existing_display_name and existing_display_name.email != normalized_email)
+
+
+def unique_display_name(candidate, email):
+    base_name = (candidate or "").strip() or email.split("@")[0]
+    base_name = base_name[:120].strip() or "Player"
+    if len(base_name) > 120:
+        base_name = base_name[:120]
+
+    if not display_name_exists(base_name, exclude_email=email):
+        return base_name
+
+    suffix_source = email.split("@")[0].strip() or "player"
+    suffix_source = "".join(char for char in suffix_source if char.isalnum()) or "player"
+    fallback_base = base_name[: max(1, 120 - len(suffix_source) - 1)].rstrip()
+    candidate_name = f"{fallback_base}-{suffix_source}".strip("-")
+    candidate_name = candidate_name[:120]
+    if not display_name_exists(candidate_name, exclude_email=email):
+        return candidate_name
+
+    counter = 2
+    while True:
+        suffix = f"-{counter}"
+        trimmed_base = base_name[: max(1, 120 - len(suffix))].rstrip()
+        candidate_name = f"{trimmed_base}{suffix}"
+        if not display_name_exists(candidate_name, exclude_email=email):
+            return candidate_name
+        counter += 1
+
+
+def verify_google_id_token(token):
+    google_client_id = current_app.config.get("GOOGLE_CLIENT_ID", "").strip()
+    if not google_client_id:
+        return None, "Google sign-in is not configured.", 500
+
+    if not token:
+        return None, "Token is missing.", 400
+
+    tokeninfo_url = "https://oauth2.googleapis.com/tokeninfo?" + urlencode(
+        {"id_token": token}
+    )
+
+    try:
+        with urlopen(tokeninfo_url, timeout=10) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except HTTPError:
+        return None, "Invalid or expired Google token.", 401
+    except (URLError, TimeoutError, json.JSONDecodeError):
+        return None, "Could not verify the Google token right now.", 502
+
+    if payload.get("aud") != google_client_id:
+        return None, "Google token audience mismatch.", 401
+
+    if payload.get("email_verified") not in {"true", True}:
+        return None, "Google account email is not verified.", 401
+
+    if not payload.get("email") or not payload.get("sub"):
+        return None, "Google account data was incomplete.", 401
+
+    return payload, None, 200
 
 
 def sync_sql_user_from_auth_document(auth_user):
@@ -991,6 +1075,96 @@ def login():
                 )
 
     response = jsonify({"message": "Logged in.", "user": serialize_user(user)})
+    login_user(response, user)
+    return response
+
+
+@api.post("/auth/google")
+def google_login():
+    payload = request.get_json(silent=True) or {}
+    token = payload.get("token")
+
+    google_payload, error_message, status_code = verify_google_id_token(token)
+    if error_message:
+        return jsonify({"message": error_message}), status_code
+
+    email = google_payload["email"].strip().lower()
+
+    if current_app.config.get("MONGODB_URI") and not mongo_auth_enabled():
+        return jsonify({"message": mongo_auth_unavailable_reason()}), 500
+
+    auth_user = find_auth_user_by_email(email)
+    if auth_user:
+        if mongo_auth_enabled():
+            update_auth_user(
+                email,
+                auth_provider="google",
+                google_sub=google_payload["sub"],
+                picture=google_payload.get("picture"),
+            )
+            auth_user = find_auth_user_by_email(email)
+        user = sync_sql_user_from_auth_document(auth_user)
+    else:
+        user = User.query.filter_by(email=email).first()
+        if user:
+            if mongo_auth_enabled():
+                existing_auth_user = find_auth_user_by_email(user.email)
+                if existing_auth_user:
+                    update_auth_user(
+                        user.email,
+                        display_name=user.display_name,
+                        password_hash=user.password_hash,
+                        sql_user_id=user.id,
+                        auth_provider="google",
+                        google_sub=google_payload["sub"],
+                        picture=google_payload.get("picture"),
+                    )
+                else:
+                    display_name = unique_display_name(user.display_name, user.email)
+                    if display_name != user.display_name:
+                        user.display_name = display_name
+                        db.session.commit()
+                    create_auth_user(
+                        user.email,
+                        display_name,
+                        user.password_hash,
+                        user.id,
+                    )
+                    update_auth_user(
+                        user.email,
+                        auth_provider="google",
+                        google_sub=google_payload["sub"],
+                        picture=google_payload.get("picture"),
+                    )
+        else:
+            display_name = unique_display_name(
+                google_payload.get("name") or google_payload["email"].split("@")[0],
+                email,
+            )
+            password_hash = placeholder_password_hash()
+            user = User(
+                email=email,
+                display_name=display_name,
+                password_hash=password_hash,
+            )
+            db.session.add(user)
+            db.session.commit()
+
+            if mongo_auth_enabled():
+                create_auth_user(email, display_name, password_hash, user.id)
+                update_auth_user(
+                    email,
+                    auth_provider="google",
+                    google_sub=google_payload["sub"],
+                    picture=google_payload.get("picture"),
+                )
+
+    response = jsonify(
+        {
+            "message": "Logged in with Google.",
+            "user": serialize_user(user),
+        }
+    )
     login_user(response, user)
     return response
 

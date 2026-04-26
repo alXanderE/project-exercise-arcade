@@ -43,6 +43,7 @@ def create_app():
         "MONGODB_USERS_COLLECTION",
         "users",
     )
+    app.config["GOOGLE_CLIENT_ID"] = os.getenv("GOOGLE_CLIENT_ID", "").strip()
     app.config["SESSION_COOKIE_NAME"] = os.getenv(
         "SESSION_COOKIE_NAME",
         "exercise_arcade_session",

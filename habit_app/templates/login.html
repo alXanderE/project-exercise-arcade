@@ -123,15 +123,14 @@
             setStatus("Checking your Google account...");
 
             try {
-                const res = await fetch("/api/auth", {
+                const loginRes = await fetch("/api/auth/google", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ token: response.credential })
                 });
-                const data = await res.json();
+                const data = await loginRes.json();
 
-                if (res.ok && data.success) {
-                    localStorage.setItem("google_user", JSON.stringify(data.user));
+                if (loginRes.ok) {
                     setStatus("Google sign-in successful. Taking you back to the app...");
                     window.setTimeout(() => {
                         window.location.href = "/";

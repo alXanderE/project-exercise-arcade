@@ -42,11 +42,14 @@ variables in Vercel:
 MONGODB_URI=mongodb+srv://<username>:<password>@exercise-haven.xxxxx.mongodb.net/?retryWrites=true&w=majority&appName=exercise-haven
 MONGODB_DB=exercise_arcade
 MONGODB_USERS_COLLECTION=users
+GOOGLE_CLIENT_ID=<your-google-oauth-client-id>
 ```
 
 With `MONGODB_URI` configured, signup and login use MongoDB for account records
 while the existing SQL database continues to hold gameplay data such as points,
-fitness logs, daily task completions, and prize wheel history.
+fitness logs, daily task completions, and prize wheel history. Google sign-in
+uses the same session cookie flow and will create or reuse the Mongo-backed
+account for the Google email address.
 
 ## API routes
 
@@ -55,6 +58,7 @@ fitness logs, daily task completions, and prize wheel history.
 - `GET /api/tasks/daily`
 - `POST /api/auth/signup`
 - `POST /api/auth/login`
+- `POST /api/auth/google`
 - `POST /api/auth/logout`
 - `GET /api/auth/session`
 - `GET /api/habits`
