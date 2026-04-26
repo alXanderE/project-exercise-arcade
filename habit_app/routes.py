@@ -129,8 +129,6 @@ DEFAULT_PRIZE_WHEEL_SLICES = [
 CARD_SUITS = ["S", "H", "D", "C"]
 CARD_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"]
 BLACKJACK_HANDS = {}
-GYM_EQUIPMENT_COST = 100
-GYM_EQUIPMENT_IDS = {"bench", "cablemachine", "dumbbells", "machine", "treadmill"}
 
 
 def wheel_rule_for_display_order(display_order):
@@ -1464,40 +1462,6 @@ def roll_dice_game(user):
             "totalWager": total_wager,
             "winnings": winnings,
             "net": winnings - total_wager,
-            "user": serialize_user(user),
-        }
-    )
-
-
-@api.post("/gym/equipment/purchase")
-@require_auth
-def purchase_gym_equipment(user):
-    if mongo_game_enabled():
-        sync_sql_user_points(user)
-
-    payload = request.get_json(silent=True) or {}
-    equipment_id = str(payload.get("itemId") or "").strip().lower()
-    if equipment_id not in GYM_EQUIPMENT_IDS:
-        return jsonify({"message": "Gym equipment item not found."}), 404
-
-    if user.points < GYM_EQUIPMENT_COST:
-        return (
-            jsonify(
-                {
-                    "message": "Not enough coins to buy that gym item.",
-                    "cost": GYM_EQUIPMENT_COST,
-                    "user": serialize_user(user),
-                }
-            ),
-            400,
-        )
-
-    apply_point_delta(user, -GYM_EQUIPMENT_COST)
-    return jsonify(
-        {
-            "message": "Gym equipment purchased.",
-            "itemId": equipment_id,
-            "cost": GYM_EQUIPMENT_COST,
             "user": serialize_user(user),
         }
     )
