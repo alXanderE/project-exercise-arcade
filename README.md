@@ -13,5 +13,5 @@ You can play our fun minigames with your coins to earn even more coins.
 
 You can use those coins to build your own virtual gym within our app.
 
-#Sign up Today to Gamify Your Workout!
+# Sign up Today to Gamify Your Workout!
 https://project-exercise-arcade-git-main-alxanderes-projects.vercel.app/
