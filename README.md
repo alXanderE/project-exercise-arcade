@@ -6,8 +6,11 @@ With Exercise Arcade, starting and maintaining good exercise habits can be made 
 Exercise Arcade is fun and exciting way to motivate yourself to work out through gamification.
 
 Earn coins through working out!
+
 The more you work out, the more coins you get.
+
 You can play our fun minigames with your coins to earn even more coins.
+
 You can use those coins to build your own virtual gym within our app.
 
 #Sign up Today to Gamify Your Workout!
